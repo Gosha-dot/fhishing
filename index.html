@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tidebound Fishing</title>
+    <link rel="stylesheet" href="./css/style.css" />
+  </head>
+  <body>
+    <main class="game-shell" aria-label="Tidebound Fishing game">
+      <canvas id="gameCanvas" aria-label="Animated fishing scene"></canvas>
+
+      <section class="top-hud" aria-label="Player status">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <h1>Tidebound Fishing</h1>
+            <p id="statusText">Ready at the dock</p>
+          </div>
+        </div>
+
+        <div class="stat-strip">
+          <div class="stat">
+            <span>Coins</span>
+            <strong id="coinAmount">0</strong>
+          </div>
+          <div class="stat">
+            <span>Level</span>
+            <strong id="levelBadge">1</strong>
+          </div>
+          <div class="xp-track" aria-label="Experience progress">
+            <span id="xpLabel">0 / 80 XP</span>
+            <div><i id="xpBar"></i></div>
+          </div>
+        </div>
+
+        <nav class="hud-actions" aria-label="Game panels">
+          <button id="shipButton" class="ghost-button" type="button">Корабель</button>
+          <button id="npcButton" class="ghost-button" type="button">Торговець</button>
+          <button id="shopButton" class="ghost-button" type="button">Shop</button>
+          <button id="dexButton" class="ghost-button" type="button">Fish Dex</button>
+          <button id="soundButton" class="icon-button" type="button" aria-label="Toggle sound">Sound</button>
+        </nav>
+      </section>
+
+      <section class="loadout-panel" aria-label="Loadout">
+        <div>
+          <span>Rod</span>
+          <strong id="rodName">Willow Rod</strong>
+        </div>
+        <div>
+          <span>Bait</span>
+          <strong id="baitName">Crumb Bait</strong>
+        </div>
+      </section>
+
+      <section class="location-bar" id="locationTabs" aria-label="Locations"></section>
+
+      <section class="meter-panel" aria-label="Fishing meters">
+        <div class="cast-meter" id="castMeter" hidden>
+          <span>Cast</span>
+          <div><i id="castFill"></i></div>
+        </div>
+
+        <div class="reel-meter" id="reelPanel" hidden>
+          <div class="reel-header">
+            <span>Line</span>
+            <strong id="lineLabel">100%</strong>
+          </div>
+          <div class="line-track"><i id="lineHealth"></i></div>
+          <div class="tension-track" id="reelTrack">
+            <span id="reelZone"></span>
+            <i id="reelMarker"></i>
+          </div>
+          <div class="progress-track"><i id="reelProgress"></i></div>
+        </div>
+      </section>
+
+      <div id="interactionPrompt" class="interaction-prompt" hidden></div>
+
+      <div id="walkControls" class="walk-controls" aria-label="Touch movement">
+        <button id="walkLeftButton" type="button" aria-label="Walk Left">◀</button>
+        <button id="walkRightButton" type="button" aria-label="Walk Right">▶</button>
+      </div>
+
+      <aside class="inventory-panel" aria-label="Inventory">
+        <div class="panel-title">
+          <div>
+            <span>Inventory</span>
+            <strong id="inventoryCount">0 fish</strong>
+          </div>
+          <button id="sellAllButton" class="accent-button" type="button">Sell All</button>
+        </div>
+        <div id="inventoryList" class="inventory-list"></div>
+      </aside>
+
+      <button id="primaryButton" class="primary-action" type="button">Cast</button>
+
+      <section id="resultToast" class="catch-toast" aria-live="polite" hidden></section>
+      <section id="toastStack" class="toast-stack" aria-live="polite"></section>
+
+      <section id="npcModal" class="modal-layer" aria-hidden="true">
+        <div class="modal-panel wide-panel" role="dialog" aria-modal="true" aria-labelledby="npcTitle">
+          <div class="modal-header">
+            <div>
+              <span>Рибний ринок</span>
+              <h2 id="npcTitle">Ятка Старого Марко</h2>
+            </div>
+            <button class="icon-button" type="button" data-close="npcModal" aria-label="Закрити">Close</button>
+          </div>
+          <div id="npcContent" class="npc-content"></div>
+        </div>
+      </section>
+
+      <section id="shipModal" class="modal-layer" aria-hidden="true">
+        <div class="modal-panel wide-panel" role="dialog" aria-modal="true" aria-labelledby="shipTitle">
+          <div class="modal-header">
+            <div>
+              <span>Морські подорожі</span>
+              <h2 id="shipTitle">Корабель «Мандрівник Хвиль»</h2>
+            </div>
+            <button class="icon-button" type="button" data-close="shipModal" aria-label="Закрити">Close</button>
+          </div>
+          <div id="shipContent" class="ship-content"></div>
+        </div>
+      </section>
+
+      <section id="shopModal" class="modal-layer" aria-hidden="true">
+        <div class="modal-panel wide-panel" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
+          <div class="modal-header">
+            <div>
+              <span>Market</span>
+              <h2 id="shopTitle">Gear Shop</h2>
+            </div>
+            <button class="icon-button" type="button" data-close="shopModal" aria-label="Close shop">Close</button>
+          </div>
+          <div id="shopContent" class="shop-content"></div>
+        </div>
+      </section>
+
+      <section id="dexModal" class="modal-layer" aria-hidden="true">
+        <div class="modal-panel wide-panel" role="dialog" aria-modal="true" aria-labelledby="dexTitle">
+          <div class="modal-header">
+            <div>
+              <span>Collection</span>
+              <h2 id="dexTitle">Fish Dex</h2>
+            </div>
+            <button class="icon-button" type="button" data-close="dexModal" aria-label="Close Fish Dex">Close</button>
+          </div>
+          <div id="dexContent" class="dex-grid"></div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./js/main.js"></script>
+  </body>
+</html>
