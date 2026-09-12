@@ -1,6 +1,6 @@
 import { fishDatabase, getFishById, LOCATION_META, RARITY_META } from "./fishDatabase.js";
 import { BAITS, BOATS, RODS } from "./shop.js";
-import { isLocationUnlocked } from "./player.js";
+import { ACHIEVEMENTS, isLocationUnlocked, QUESTS } from "./player.js";
 import { getFishInventoryIcon, getFishSvg } from "./fishArt.js";
 
 // DOM adapter for HUD, panels, modals, inventory, and input. Rendering is keyed
@@ -19,6 +19,8 @@ export class UIController {
       statusText: document.querySelector("#statusText"),
       rodName: document.querySelector("#rodName"),
       baitName: document.querySelector("#baitName"),
+      worldConditions: document.querySelector("#worldConditions"),
+      abilityButton: document.querySelector("#abilityButton"),
       locationTabs: document.querySelector("#locationTabs"),
       castMeter: document.querySelector("#castMeter"),
       castFill: document.querySelector("#castFill"),
@@ -35,6 +37,9 @@ export class UIController {
       shopButton: document.querySelector("#shopButton"),
       dexButton: document.querySelector("#dexButton"),
       npcButton: document.querySelector("#npcButton"),
+      aquariumButton: document.querySelector("#aquariumButton"),
+      journalButton: document.querySelector("#journalButton"),
+      cheatButton: document.querySelector("#cheatButton"),
       shipButton: document.querySelector("#shipButton"),
       soundButton: document.querySelector("#soundButton"),
       shopModal: document.querySelector("#shopModal"),
@@ -44,6 +49,14 @@ export class UIController {
       shopContent: document.querySelector("#shopContent"),
       dexContent: document.querySelector("#dexContent"),
       npcContent: document.querySelector("#npcContent"),
+      aquariumModal: document.querySelector("#aquariumModal"),
+      aquariumContent: document.querySelector("#aquariumContent"),
+      journalModal: document.querySelector("#journalModal"),
+      journalContent: document.querySelector("#journalContent"),
+      cheatModal: document.querySelector("#cheatModal"),
+      cheatOutput: document.querySelector("#cheatOutput"),
+      cheatForm: document.querySelector("#cheatForm"),
+      cheatInput: document.querySelector("#cheatInput"),
       shipContent: document.querySelector("#shipContent"),
       interactionPrompt: document.querySelector("#interactionPrompt"),
       walkLeftButton: document.querySelector("#walkLeftButton"),
@@ -71,7 +84,10 @@ export class UIController {
     document.addEventListener("keydown", (event) => {
       if (isTypingTarget(event.target)) return;
 
-      if (event.code === "Space" && !event.repeat) {
+      if (event.code === "Backquote") {
+        event.preventDefault();
+        this.openModal("cheatModal");
+      } else if (event.code === "Space" && !event.repeat) {
         event.preventDefault();
         handlers.primaryDown();
       } else if (event.code === "KeyA" || event.code === "ArrowLeft") {
@@ -80,6 +96,8 @@ export class UIController {
         handlers.walkRightDown?.();
       } else if (event.code === "KeyE" || event.code === "Enter") {
         handlers.interactAction?.();
+      } else if (event.code === "KeyQ") {
+        handlers.ability?.();
       }
     });
 
@@ -99,6 +117,10 @@ export class UIController {
     this.dom.shopButton?.addEventListener("click", () => this.openModal("shopModal"));
     this.dom.dexButton?.addEventListener("click", () => this.openModal("dexModal"));
     this.dom.npcButton?.addEventListener("click", () => this.openModal("npcModal"));
+    this.dom.aquariumButton?.addEventListener("click", () => this.openModal("aquariumModal"));
+    this.dom.journalButton?.addEventListener("click", () => this.openModal("journalModal"));
+    this.dom.cheatButton?.addEventListener("click", () => this.openModal("cheatModal"));
+    this.dom.abilityButton?.addEventListener("click", () => handlers.ability?.());
     this.dom.shipButton?.addEventListener("click", () => this.openModal("shipModal"));
     this.dom.soundButton?.addEventListener("click", () => handlers.toggleSound());
     this.dom.sellAllButton?.addEventListener("click", () => handlers.sellAll());
@@ -163,7 +185,47 @@ export class UIController {
         handlers.sellCatchNpc?.(sellItemBtn.dataset.npcSellCatch);
         return;
       }
+      const questKeepBtn = event.target.closest("[data-keep-catch]");
+      if (questKeepBtn) handlers.keepCatch?.(questKeepBtn.dataset.keepCatch);
     });
+
+    this.dom.inventoryList.addEventListener("click", (event) => {
+      const keepButton = event.target.closest("[data-keep-catch]");
+      if (keepButton) handlers.keepCatch?.(keepButton.dataset.keepCatch);
+    });
+
+    this.dom.aquariumContent?.addEventListener("click", (event) => {
+      const feedButton = event.target.closest("[data-feed-fish]");
+      const displayButton = event.target.closest("[data-display-fish]");
+      if (feedButton) handlers.feedFish?.(feedButton.dataset.feedFish);
+      if (displayButton) handlers.toggleDisplayFish?.(displayButton.dataset.displayFish);
+    });
+
+    this.dom.journalContent?.addEventListener("click", (event) => {
+      if (event.target.closest("[data-export-save]")) handlers.exportSave?.();
+      if (event.target.closest("[data-import-save]")) this.saveImportInput?.click();
+    });
+
+    this.dom.cheatForm?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const command = this.dom.cheatInput.value.trim();
+      if (!command) return;
+      this.appendCheatLine(`> ${command}`);
+      const result = handlers.cheatCommand?.(command);
+      if (result?.message) this.appendCheatLine(result.message, result.ok ? "success" : "error");
+      this.dom.cheatInput.value = "";
+    });
+
+    this.saveImportInput = document.createElement("input");
+    this.saveImportInput.type = "file";
+    this.saveImportInput.accept = "application/json,.json";
+    this.saveImportInput.hidden = true;
+    this.saveImportInput.addEventListener("change", () => {
+      const file = this.saveImportInput.files?.[0];
+      if (file) file.text().then((text) => handlers.importSave?.(text));
+      this.saveImportInput.value = "";
+    });
+    document.body.append(this.saveImportInput);
 
     this.dom.shipContent?.addEventListener("click", (event) => {
       const sailBtn = event.target.closest("[data-sail-destination]");
@@ -194,6 +256,10 @@ export class UIController {
     this.dom.xpBar.style.width = `${player.levelInfo.progress * 100}%`;
     this.dom.rodName.textContent = player.selectedRodData.name;
     this.dom.baitName.textContent = player.selectedBaitData.name;
+    this.dom.worldConditions.textContent = `${player.conditions.weather} / ${player.conditions.season}`;
+    const ability = player.selectedRodData.ability;
+    this.dom.abilityButton.textContent = `${ability.name} ${fishingState.abilityCooldown > 0 ? Math.ceil(fishingState.abilityCooldown) + "s" : "Ready"}`;
+    this.dom.abilityButton.disabled = fishingState.mode !== "reeling" || fishingState.abilityCooldown > 0;
     this.dom.statusText.textContent = fishingState.status;
 
     this.updatePrimaryButton(fishingState.mode);
@@ -211,6 +277,14 @@ export class UIController {
 
     if (this.dom.npcModal.classList.contains("open")) {
       this.renderNpc(player);
+    }
+
+    if (this.dom.aquariumModal?.classList.contains("open")) {
+      this.renderAquarium(player);
+    }
+
+    if (this.dom.journalModal?.classList.contains("open")) {
+      this.renderJournal(player);
     }
 
     if (this.dom.shipModal.classList.contains("open")) {
@@ -256,6 +330,16 @@ export class UIController {
     } else if (id === "shipModal") {
       this.renderKeys.delete("shipModal");
       this.renderShip(player);
+    } else if (id === "aquariumModal") {
+      this.renderKeys.delete("aquarium");
+      this.renderAquarium(player);
+    } else if (id === "journalModal") {
+      this.renderKeys.delete("journal");
+      this.renderJournal(player);
+    } else if (id === "cheatModal") {
+      this.dom.cheatOutput.replaceChildren();
+      this.appendCheatLine("Tidebound developer console. Введи help для списку команд.");
+      requestAnimationFrame(() => this.dom.cheatInput?.focus());
     }
   }
 
@@ -267,6 +351,14 @@ export class UIController {
 
     modal.classList.remove("open");
     modal.setAttribute("aria-hidden", "true");
+  }
+
+  appendCheatLine(text, tone = "") {
+    const line = document.createElement("div");
+    line.className = `cheat-line ${tone}`;
+    line.textContent = text;
+    this.dom.cheatOutput.append(line);
+    this.dom.cheatOutput.scrollTop = this.dom.cheatOutput.scrollHeight;
   }
 
   showCatchResult(catchItem, levelResult) {
@@ -417,7 +509,10 @@ export class UIController {
                 <p>${item.weight.toFixed(2)} kg - ${item.price} coins</p>
               </div>
             </div>
-            <button type="button" data-sell-catch="${escapeHtml(item.catchId)}">Sell</button>
+            <div class="inventory-actions">
+              <button type="button" data-keep-catch="${escapeHtml(item.catchId)}">Keep</button>
+              <button type="button" data-sell-catch="${escapeHtml(item.catchId)}">Sell</button>
+            </div>
           </article>
         `;
       })
@@ -553,7 +648,55 @@ export class UIController {
           <p>I buy fresh catches for <strong>15% above regular value</strong>. Sell one fish or cash out the whole bag.</p>
         </div>
       </div>
+      <section class="quest-board">
+        <h3>Квести болотної провідниці</h3>
+        <div class="quest-list">
+          ${QUESTS.map((quest) => {
+            const progress = player.quests.find((item) => item.id === quest.id);
+            return `<article class="quest-card ${progress?.completed ? "complete" : ""}">
+              <div><strong>${escapeHtml(quest.title)}</strong><p>${escapeHtml(quest.description)}</p></div>
+              <span>${progress?.completed ? "Готово" : `${progress?.progress ?? 0}/${quest.target}`}</span>
+            </article>`;
+          }).join("")}
+        </div>
+      </section>
       ${fishListHtml}
+    `;
+  }
+
+  renderAquarium(player) {
+    const key = player.aquarium.map((item) => `${item.catchId}:${item.feedCount}:${item.displayed}`).join("|");
+    if (this.renderKeys.get("aquarium") === key) return;
+    this.renderKeys.set("aquarium", key);
+    this.dom.aquariumContent.innerHTML = player.aquarium.length
+      ? `<div class="aquarium-tank">${player.aquarium.filter((item) => item.displayed).map((item) => `<span>${escapeHtml(item.name)}</span>`).join("") || "Вітрина чекає на рибу"}</div>
+         <div class="aquarium-grid">${player.aquarium.map((item) => {
+           const fish = getFishById(item.fishId) ?? item;
+           return `<article class="aquarium-fish-card">${getFishInventoryIcon({ ...fish, ...item, id: fish.id }, { size: 72, seed: item.catchId })}<strong>${escapeHtml(item.name)}</strong><small>Годували: ${item.feedCount ?? 0}</small><div><button type="button" data-feed-fish="${escapeHtml(item.catchId)}">Годувати</button><button type="button" data-display-fish="${escapeHtml(item.catchId)}">${item.displayed ? "Прибрати" : "Виставити"}</button></div></article>`;
+         }).join("")}</div>`
+      : `<div class="npc-empty-box"><p>Залиш рибу живою через кнопку Keep у садку, щоб заселити акваріум.</p></div>`;
+  }
+
+  renderJournal(player) {
+    const key = `${player.levelInfo.level}|${player.coins}|${player.achievements.map((item) => `${item.id}:${item.progress}:${item.completed}`).join(",")}`;
+    if (this.renderKeys.get("journal") === key) return;
+    this.renderKeys.set("journal", key);
+    this.dom.journalContent.innerHTML = `
+      <section class="journal-section tutorial-section">
+        <h3>Як грати</h3>
+        <p>Утримуй Cast, відпусти для закидання, натисни Hook на клювання, а під час виважування тримай маркер у зеленій зоні.</p>
+        <p>Вночі з’являються рідкісні види, дощ допомагає ловити вугрів. Рибу можна продати або залишити живою в акваріумі.</p>
+      </section>
+      <section class="journal-section">
+        <div class="journal-section-header"><h3>Досягнення</h3><span>${player.achievements.filter((item) => item.completed).length}/${ACHIEVEMENTS.length}</span></div>
+        <div class="achievement-list">${player.achievements.map((item) => `<article class="achievement-card ${item.completed ? "complete" : ""}"><div><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.description)}</p></div><span>${item.completed ? "✓" : `${Math.floor(item.progress ?? 0)}/${item.target}`}</span></article>`).join("")}</div>
+      </section>
+      <section class="journal-section save-tools">
+        <h3>Сейв</h3>
+        <p>Перенеси прогрес на інший пристрій через JSON-файл.</p>
+        <button type="button" data-export-save>Експортувати сейв</button>
+        <button type="button" data-import-save>Імпортувати сейв</button>
+      </section>
     `;
   }
   renderShip(player) {
@@ -618,11 +761,12 @@ export class UIController {
 }
 
 function renderShopSection(title, items, player, type) {
+  const visibleItems = items.filter((item) => !item.cheatOnly);
   return `
     <section class="shop-section">
       <h3>${escapeHtml(title)}</h3>
       <div class="shop-grid">
-        ${items.map((item) => renderShopCard(item, player, type)).join("")}
+        ${visibleItems.map((item) => renderShopCard(item, player, type)).join("")}
       </div>
     </section>
   `;

@@ -2,6 +2,7 @@ import { fishDatabase, RARITY_META } from "./fishDatabase.js";
 import { FishingController } from "./fishing.js";
 import { getFishRenderModel } from "./fishArchetypes.js";
 import { createPlayerStore } from "./player.js";
+import { RODS } from "./shop.js";
 import { UIController } from "./ui.js";
 
 // Main entry point: owns the canvas loop, audio bus, and cross-module wiring.
@@ -19,6 +20,8 @@ const fishing = new FishingController({
   onCatch(catchItem) {
     const levelResult = playerStore.addCatch(catchItem);
     ui.showCatchResult(catchItem, levelResult);
+    levelResult.completedQuests?.forEach((quest) => ui.showToast(`Квест виконано: ${quest.title} (+${quest.reward} монет).`));
+    levelResult.completedAchievements?.forEach((achievement) => ui.showToast(`Досягнення: ${achievement.title} (+${achievement.reward} монет).`));
   },
   onMiss(message) {
     ui.showToast(message);
@@ -38,6 +41,11 @@ ui.bindHandlers({
   primaryUp() {
     fishing.releasePrimary();
   },
+  ability() {
+    if (!fishing.pressAbility()) {
+      ui.showToast("Здібність ще не готова або працює лише під час виважування.");
+    }
+  },
   sellAll() {
     const result = playerStore.sellAll();
     ui.showToast(result.message);
@@ -45,6 +53,35 @@ ui.bindHandlers({
   sellCatch(catchId) {
     const result = playerStore.sellCatch(catchId);
     ui.showToast(result.message);
+  },
+  keepCatch(catchId) {
+    const result = playerStore.keepCatch(catchId);
+    ui.showToast(result.message);
+  },
+  feedFish(catchId) {
+    const result = playerStore.feedFish(catchId);
+    ui.showToast(result.message);
+  },
+  toggleDisplayFish(catchId) {
+    const result = playerStore.toggleDisplayFish(catchId);
+    ui.showToast(result.message);
+  },
+  exportSave() {
+    const blob = new Blob([playerStore.exportSave()], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "tidebound-fishing-save.json";
+    link.click();
+    URL.revokeObjectURL(url);
+    ui.showToast("Сейв експортовано.");
+  },
+  importSave(serialized) {
+    const result = playerStore.importSave(serialized);
+    ui.showToast(result.message);
+  },
+  cheatCommand(command) {
+    return runCheatCommand(command);
   },
   sellAllNpc() {
     const result = playerStore.sellAllWithBonus(15);
@@ -61,6 +98,15 @@ ui.bindHandlers({
     }
 
     const result = playerStore.setLocation(locationId);
+    ui.showToast(result.message);
+  },
+  sailTo(destinationId, fare) {
+    if (fishing.getSnapshot().mode !== "idle") {
+      ui.showToast("Спочатку заверши поточну риболовлю.");
+      return;
+    }
+
+    const result = playerStore.payTravelFare(fare, destinationId);
     ui.showToast(result.message);
   },
   shopAction(action, itemId) {
@@ -82,6 +128,10 @@ ui.bindHandlers({
 });
 
 ui.setSoundEnabled(soundEnabled);
+if (!localStorage.getItem("tidebound-tutorial-seen")) {
+  localStorage.setItem("tidebound-tutorial-seen", "1");
+  ui.openModal("journalModal");
+}
 requestAnimationFrame(frame);
 
 let previousTime = performance.now();
@@ -115,6 +165,29 @@ function runShopAction(action, itemId) {
   return { ok: false, message: "Unknown shop action." };
 }
 
+function runCheatCommand(command) {
+  const parts = command.trim().split(/\s+/);
+  const verb = parts[0]?.toLowerCase();
+  const subject = parts[1]?.toLowerCase();
+  const value = parts[2];
+
+  if (command.trim().toLowerCase() === "help") {
+    return {
+      ok: true,
+      message: `Команди: unlock all | give rod <id> | give rod all | give coins <amount> | set level <1-50> | luck on/off | reset all. Вудки: ${RODS.map((rod) => rod.id).join(", ")}`,
+    };
+  }
+  if (verb === "reset" && subject === "all") return playerStore.reset();
+  if (verb === "luck" && subject === "on") return playerStore.cheatSetLuck(true);
+  if (verb === "luck" && subject === "off") return playerStore.cheatSetLuck(false);
+  if (verb === "unlock" && subject === "all") return playerStore.cheatUnlockAll();
+  if (verb === "give" && subject === "rod" && value?.toLowerCase() === "all") return playerStore.cheatGiveAllRods();
+  if (verb === "give" && subject === "rod" && value) return playerStore.cheatGiveRod(value.toLowerCase());
+  if (verb === "give" && subject === "coins") return playerStore.cheatGiveCoins(value);
+  if (verb === "set" && subject === "level") return playerStore.cheatSetLevel(value);
+  return { ok: false, message: "Невідома команда. Введи help." };
+}
+
 function drawScene(context, targetCanvas, player, fishingState, time) {
   const { width, height } = resizeCanvas(targetCanvas, context);
   const location = player.currentLocationData;
@@ -124,6 +197,7 @@ function drawScene(context, targetCanvas, player, fishingState, time) {
   drawSky(context, width, height, palette, location.id, time);
   drawFarShore(context, width, height, waterLine, palette, location.id, time);
   drawWater(context, width, height, waterLine, palette, location.id, time);
+  drawWeatherOverlay(context, width, height, player.conditions, time);
   drawFishShapes(context, width, height, waterLine, player.currentLocation, time);
   drawDockAndAngler(context, width, height, waterLine, palette, time, fishingState);
   drawFishingLine(context, width, height, waterLine, time, fishingState);
@@ -133,6 +207,27 @@ function drawScene(context, targetCanvas, player, fishingState, time) {
   if (fishingState.mode === "reeling") {
     drawWaterTension(context, width, height, fishingState);
   }
+}
+
+function drawWeatherOverlay(context, width, height, conditions, time) {
+  context.save();
+  if (conditions.isNight) {
+    context.fillStyle = "rgba(4, 10, 30, 0.34)";
+    context.fillRect(0, 0, width, height * 0.58);
+  }
+  if (conditions.weather === "rain") {
+    context.strokeStyle = "rgba(185, 225, 235, 0.34)";
+    context.lineWidth = 1.2;
+    for (let i = 0; i < 90; i += 1) {
+      const x = (i * 71 + time * 80) % (width + 40) - 20;
+      const y = (i * 37 + time * 120) % (height * 0.62);
+      context.beginPath();
+      context.moveTo(x, y);
+      context.lineTo(x - 5, y + 15);
+      context.stroke();
+    }
+  }
+  context.restore();
 }
 
 function resizeCanvas(targetCanvas, context) {

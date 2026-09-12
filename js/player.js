@@ -1,9 +1,21 @@
-import { fishDatabase, LOCATION_META } from "./fishDatabase.js";
+import { fishDatabase, getWorldConditions, LOCATION_META } from "./fishDatabase.js";
 import { BAITS, BOATS, getBait, getBoat, getRod, RODS } from "./shop.js";
 
 // Owns all persisted player state. The rest of the app receives snapshots and
 // asks this store to perform mutations so save data stays in one place.
 const STORAGE_KEY = "tidebound-fishing-save-v1";
+
+export const QUESTS = Object.freeze([
+  { id: "swamp-rare-trio", title: "Три болотні рідкісні", description: "Злови 3 Rare риби в болоті.", target: 3, reward: 180 },
+  { id: "flat-two-kilos", title: "Камбала-важковаговик", description: "Принеси камбалу вагою 2+ кг.", target: 1, reward: 120 },
+]);
+
+export const ACHIEVEMENTS = Object.freeze([
+  { id: "first-catch", title: "Перший улов", description: "Злови свою першу рибу.", target: 1, stat: "caught", reward: 40 },
+  { id: "ten-catches", title: "Досвідчений рибалка", description: "Злови 10 риб.", target: 10, stat: "caught", reward: 120 },
+  { id: "big-fish", title: "Велика здобич", description: "Злови рибу вагою 20+ кг.", target: 20, stat: "bestWeight", reward: 180 },
+  { id: "collector", title: "Колекціонер", description: "Відкрий 10 видів у Fish Dex.", target: 10, stat: "species", reward: 220 },
+]);
 
 const DEFAULT_STATE = Object.freeze({
   coins: 120,
@@ -15,7 +27,11 @@ const DEFAULT_STATE = Object.freeze({
   ownedBaits: ["crumb-bait"],
   ownedBoats: [],
   inventory: [],
+  aquarium: [],
   dex: {},
+  quests: {},
+  achievements: {},
+  cheatLuck: false,
   stats: {
     caught: 0,
     sold: 0,
@@ -42,6 +58,14 @@ export function createPlayerStore() {
       selectedRodData: getRod(state.selectedRod),
       selectedBaitData: getBait(state.selectedBait),
       currentLocationData: LOCATION_META[state.currentLocation] ?? LOCATION_META.lake,
+      conditions: getWorldConditions(state.currentLocation),
+      aquarium: state.aquarium,
+      quests: QUESTS.map((quest) => ({ ...quest, ...(state.quests[quest.id] ?? {}) })),
+      achievements: ACHIEVEMENTS.map((achievement) => ({
+        ...achievement,
+        ...(state.achievements[achievement.id] ?? {}),
+      })),
+      cheatLuck: state.cheatLuck,
       unlockedLocations: Object.keys(LOCATION_META).filter((locationId) =>
         isLocationUnlocked(state, locationId),
       ),
@@ -75,13 +99,122 @@ export function createPlayerStore() {
         firstCaughtAt: dexEntry.firstCaughtAt,
       };
 
+      const completedQuests = updateQuestProgress(next, catchItem);
+      for (const quest of completedQuests) {
+        next.coins += quest.reward;
+      }
+
+      const completedAchievements = updateAchievements(next, catchItem);
+      for (const achievement of completedAchievements) {
+        next.coins += achievement.reward;
+      }
+
       const afterLevel = getLevelInfo(next.xp).level;
       commit(next);
 
       return {
         levelUp: afterLevel > beforeLevel,
         level: afterLevel,
+        completedQuests,
+        completedAchievements,
       };
+    },
+    exportSave() {
+      return JSON.stringify(state, null, 2);
+    },
+    importSave(serialized) {
+      try {
+        const imported = JSON.parse(serialized);
+        if (!imported || typeof imported !== "object" || !Array.isArray(imported.inventory)) {
+          throw new Error("Invalid save");
+        }
+        commit(imported);
+        return { ok: true, message: "Сейв імпортовано." };
+      } catch {
+        return { ok: false, message: "Не вдалося імпортувати цей сейв." };
+      }
+    },
+    cheatUnlockAll() {
+      const next = clone(state);
+      next.coins += 100000;
+      next.xp = Math.max(next.xp, getXpThroughLevel(10));
+      next.ownedBoats = BOATS.map((boat) => boat.id);
+      next.ownedRods = RODS.filter((rod) => !rod.cheatOnly).map((rod) => rod.id);
+      commit(next);
+      return { ok: true, message: "Чит активовано: всі локації та вудки відкрито." };
+    },
+    cheatGiveRod(rodId) {
+      const rod = getRod(rodId);
+      if (!rod || rod.id !== rodId) {
+        return { ok: false, message: `Вудку не знайдено: ${rodId}.` };
+      }
+      const next = clone(state);
+      if (!next.ownedRods.includes(rod.id)) next.ownedRods.push(rod.id);
+      next.selectedRod = rod.id;
+      commit(next);
+      return { ok: true, message: `Видано та екіпіровано: ${rod.name}.` };
+    },
+    cheatGiveAllRods() {
+      const next = clone(state);
+      next.ownedRods = RODS.map((rod) => rod.id);
+      commit(next);
+      return { ok: true, message: "Усі вудки додано до інвентарю." };
+    },
+    cheatGiveCoins(amount) {
+      const coins = Math.max(0, Math.floor(Number(amount)));
+      if (!Number.isFinite(coins) || coins <= 0) {
+        return { ok: false, message: "Вкажи додатне число монет." };
+      }
+      const next = clone(state);
+      next.coins += coins;
+      commit(next);
+      return { ok: true, message: `Додано ${coins} монет.` };
+    },
+    cheatSetLevel(level) {
+      const targetLevel = Math.max(1, Math.min(50, Math.floor(Number(level))));
+      if (!Number.isFinite(targetLevel)) {
+        return { ok: false, message: "Рівень має бути числом від 1 до 50." };
+      }
+      const next = clone(state);
+      next.xp = getXpThroughLevel(targetLevel);
+      commit(next);
+      return { ok: true, message: `Встановлено рівень ${targetLevel}.` };
+    },
+    cheatSetLuck(enabled) {
+      const next = clone(state);
+      next.cheatLuck = Boolean(enabled);
+      commit(next);
+      return {
+        ok: true,
+        message: next.cheatLuck
+          ? "Режим удачі увімкнено: ловитимуться лише Legendary або Mythical риби."
+          : "Режим удачі вимкнено.",
+      };
+    },
+    keepCatch(catchId) {
+      const next = clone(state);
+      const index = next.inventory.findIndex((item) => item.catchId === catchId);
+      if (index === -1) return { ok: false, message: "Цієї риби вже немає в садку." };
+      const [catchItem] = next.inventory.splice(index, 1);
+      next.aquarium.unshift({ ...catchItem, feedCount: 0, displayed: next.aquarium.length === 0 });
+      commit(next);
+      return { ok: true, message: `${catchItem.name} оселилася в акваріумі.` };
+    },
+    feedFish(catchId) {
+      const next = clone(state);
+      const fish = next.aquarium.find((item) => item.catchId === catchId);
+      if (!fish) return { ok: false, message: "Рибу не знайдено в акваріумі." };
+      fish.feedCount = (fish.feedCount ?? 0) + 1;
+      commit(next);
+      return { ok: true, message: `${fish.name} задоволено хлюпнула хвостом.` };
+    },
+    toggleDisplayFish(catchId) {
+      const next = clone(state);
+      const fish = next.aquarium.find((item) => item.catchId === catchId);
+      if (!fish) return { ok: false, message: "Рибу не знайдено в акваріумі." };
+      fish.displayed = !fish.displayed;
+      commit(next);
+      return { ok: true, message: fish.displayed ? "Рибу виставлено в головній вітрині." : "Рибу прибрано з вітрини." };
     },
     sellAll() {
       const next = clone(state);
@@ -182,7 +315,7 @@ export function createPlayerStore() {
 
       return {
         ok: true,
-        message: `Підняти вітрила! Корабель прибув до: ${location.name} (оплачено ${fare} монет).`,
+        message: `Квиток придбано. Корабель прибув до: ${location.name} (оплачено ${fare} монет).`,
       };
     },
     buyRod(rodId) {
@@ -318,6 +451,14 @@ function getXpForLevel(level) {
   return 70 + level * 32;
 }
 
+function getXpThroughLevel(level) {
+  let totalXp = 0;
+  for (let currentLevel = 1; currentLevel < level; currentLevel += 1) {
+    totalXp += getXpForLevel(currentLevel);
+  }
+  return totalXp;
+}
+
 function readSave() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -351,7 +492,11 @@ function normalizeState(rawState) {
     ? next.ownedBoats.filter((id) => BOATS.some((boat) => boat.id === id))
     : [];
   next.inventory = Array.isArray(next.inventory) ? next.inventory : [];
+  next.aquarium = Array.isArray(next.aquarium) ? next.aquarium : [];
   next.dex = typeof next.dex === "object" && next.dex ? next.dex : {};
+  next.quests = typeof next.quests === "object" && next.quests ? next.quests : {};
+  next.achievements = typeof next.achievements === "object" && next.achievements ? next.achievements : {};
+  next.cheatLuck = Boolean(next.cheatLuck);
 
   if (!next.ownedRods.includes(next.selectedRod)) {
     next.selectedRod = RODS[0].id;
@@ -374,6 +519,54 @@ function normalizeState(rawState) {
   }
 
   return next;
+}
+
+function updateQuestProgress(next, catchItem) {
+  const completed = [];
+  for (const quest of QUESTS) {
+    const current = next.quests[quest.id] ?? { progress: 0, completed: false };
+    if (current.completed) continue;
+
+    if (quest.id === "swamp-rare-trio" && ["bog", "swamp"].includes(catchItem.locationId) && catchItem.rarity === "Rare") {
+      current.progress = Math.min(quest.target, (current.progress ?? 0) + 1);
+    }
+    if (quest.id === "flat-two-kilos" && catchItem.fishId === "dock-flounder" && catchItem.weight >= 2) {
+      current.progress = quest.target;
+    }
+
+    if (current.progress >= quest.target) {
+      current.completed = true;
+      completed.push(quest);
+    }
+    next.quests[quest.id] = current;
+  }
+  return completed;
+}
+
+function updateAchievements(next, catchItem) {
+  const completed = [];
+  const bestWeight = Math.max(
+    catchItem.weight,
+    ...next.inventory.map((item) => Number(item.weight) || 0),
+    ...next.aquarium.map((item) => Number(item.weight) || 0),
+  );
+  const species = Object.values(next.dex).filter((entry) => entry.count > 0).length;
+
+  for (const achievement of ACHIEVEMENTS) {
+    const current = next.achievements[achievement.id] ?? { progress: 0, completed: false };
+    if (current.completed) continue;
+    current.progress = achievement.stat === "bestWeight"
+      ? bestWeight
+      : achievement.stat === "species"
+        ? species
+        : next.stats[achievement.stat] ?? 0;
+    if (current.progress >= achievement.target) {
+      current.completed = true;
+      completed.push(achievement);
+    }
+    next.achievements[achievement.id] = current;
+  }
+  return completed;
 }
 
 function ensureOwned(items, fallbackId) {

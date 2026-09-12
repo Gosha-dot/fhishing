@@ -226,8 +226,14 @@ h1 {
 
 .hud-actions {
   display: flex;
+  min-width: 0;
   gap: 8px;
   justify-content: flex-end;
+}
+
+.hud-actions button {
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .ghost-button,
@@ -254,6 +260,11 @@ h1 {
   gap: 10px;
   padding: 10px;
   border-radius: var(--radius);
+}
+
+.loadout-panel .accent-button {
+  min-height: 40px;
+  align-self: stretch;
 }
 
 .loadout-panel div {
@@ -927,6 +938,199 @@ h1 {
   padding: 16px;
 }
 
+.ship-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.ship-dialogue-hero {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.ship-avatar {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--water), var(--gold));
+  font-size: 1.5rem;
+}
+
+.ship-dialogue-bubble {
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.ship-dialogue-bubble h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.ship-dialogue-bubble p,
+.route-desc {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.ship-routes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+}
+
+.ship-route-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: var(--radius);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.035));
+}
+
+.ship-route-card.current {
+  border-color: var(--leaf);
+  box-shadow: inset 0 0 0 1px rgba(120, 210, 125, 0.18);
+}
+
+.ship-route-card.locked {
+  opacity: 0.62;
+}
+
+.route-header {
+  display: grid;
+  gap: 4px;
+}
+
+.route-tag {
+  color: var(--gold);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.route-header h4 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.route-footer {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.route-cost {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.route-cost strong {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.route-footer button {
+  min-width: 132px;
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.route-footer button.sail-ready {
+  background: linear-gradient(135deg, var(--leaf), var(--gold));
+  color: #10140e;
+}
+
+.quest-board {
+  margin: 14px 0;
+}
+
+.quest-board h3 {
+  margin: 0 0 8px;
+}
+
+.quest-list,
+.aquarium-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+}
+
+.quest-card,
+.aquarium-fish-card,
+.aquarium-tank {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.quest-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+}
+
+.quest-card p,
+.aquarium-fish-card small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.quest-card.complete {
+  border-color: var(--leaf);
+}
+
+.aquarium-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.aquarium-tank {
+  min-height: 130px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 16px;
+  color: var(--gold);
+  background: linear-gradient(180deg, rgba(89, 199, 242, 0.32), rgba(12, 53, 66, 0.84));
+}
+
+.aquarium-fish-card {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+}
+
+.aquarium-fish-card button,
+.inventory-actions button {
+  min-height: 32px;
+  padding: 0 8px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.inventory-actions {
+  display: flex;
+  gap: 5px;
+}
+
 .npc-dialogue-hero {
   display: grid;
   grid-template-columns: 58px 1fr;
@@ -1046,6 +1250,148 @@ h1 {
   box-shadow: inset 0 0 16px rgba(255, 255, 255, 0.04);
 }
 
+.journal-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.journal-section + .journal-section {
+  margin-top: 18px;
+}
+
+.journal-section h3 {
+  margin: 0 0 8px;
+}
+
+.journal-section p {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.journal-section-header,
+.achievement-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.achievement-list {
+  display: grid;
+  gap: 8px;
+}
+
+.achievement-card {
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.achievement-card p {
+  margin-top: 4px;
+  font-size: 0.8rem;
+}
+
+.achievement-card.complete {
+  border-color: var(--gold);
+}
+
+.save-tools {
+  display: grid;
+  gap: 8px;
+}
+
+.save-tools button {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.save-tools button:first-of-type {
+  background: linear-gradient(135deg, var(--leaf), var(--gold));
+  color: #10140e;
+}
+
+.cheat-panel {
+  width: min(760px, 100%);
+}
+
+.cheat-content {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  padding: 16px;
+}
+
+.cheat-output {
+  min-height: 240px;
+  max-height: 48vh;
+  overflow: auto;
+  padding: 14px;
+  border: 1px solid rgba(120, 210, 125, 0.25);
+  border-radius: var(--radius);
+  background: #07110f;
+  color: #a9e8b0;
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.cheat-line.success {
+  color: var(--gold);
+}
+
+.cheat-line.error {
+  color: var(--coral);
+}
+
+.cheat-help {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.cheat-help code {
+  color: var(--gold);
+}
+
+.cheat-form {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.cheat-form > span {
+  color: var(--leaf);
+  font-family: "Cascadia Mono", Consolas, monospace;
+  font-weight: 900;
+}
+
+.cheat-form input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  outline: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font: 0.86rem "Cascadia Mono", Consolas, monospace;
+}
+
+.cheat-form input:focus {
+  border-color: var(--leaf);
+  box-shadow: 0 0 0 3px rgba(120, 210, 125, 0.15);
+}
+
+.cheat-form button {
+  padding: 0 14px;
+  background: linear-gradient(135deg, var(--leaf), var(--gold));
+  color: #10140e;
+}
+
 .dex-silhouette {
   filter: brightness(0) opacity(0.25);
 }
@@ -1124,11 +1470,15 @@ h1 {
   }
 
   .hud-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     justify-content: stretch;
   }
 
   .hud-actions button {
-    flex: 1;
+    width: 100%;
+    padding: 0 8px;
+    font-size: 0.78rem;
   }
 
   .loadout-panel {
@@ -1169,6 +1519,47 @@ h1 {
   }
 }
 
+@media (min-width: 901px) and (max-width: 1100px) {
+  .top-hud {
+    grid-template-columns: minmax(200px, 1fr) minmax(260px, auto);
+  }
+
+  .hud-actions {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .hud-actions button {
+    width: 100%;
+    padding: 0 8px;
+    font-size: 0.78rem;
+  }
+
+  .loadout-panel {
+    top: 154px;
+    right: 16px;
+    max-width: calc(50vw - 24px);
+    flex-wrap: wrap;
+  }
+
+  .loadout-panel div {
+    min-width: 110px;
+    flex: 1 1 110px;
+  }
+
+  .loadout-panel .accent-button {
+    flex: 1 1 100%;
+  }
+
+  .location-bar {
+    top: 154px;
+    left: 16px;
+    right: auto;
+    max-width: calc(50vw - 24px);
+  }
+}
+
 @media (max-width: 560px) {
   .top-hud {
     top: 10px;
@@ -1195,6 +1586,13 @@ h1 {
     bottom: 143px;
     gap: 8px;
     padding: 8px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: calc(100vw - 20px);
+  }
+
+  .loadout-panel .accent-button {
+    width: 100%;
   }
 
   .meter-panel {
@@ -1206,7 +1604,91 @@ h1 {
   }
 
   .shop-content,
-  .dex-grid {
+  .dex-grid,
+  .journal-content,
+  .aquarium-content {
     padding: 10px;
+  }
+
+  .hud-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .hud-actions button {
+    min-width: 0;
+    padding: 0 6px;
+    font-size: 0.72rem;
+  }
+
+  .modal-panel {
+    max-height: calc(100vh - 20px);
+  }
+
+  .modal-header {
+    padding: 12px;
+  }
+
+  .modal-header h2 {
+    max-width: 70vw;
+    overflow-wrap: anywhere;
+  }
+
+  .ship-dialogue-hero {
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .ship-avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .ship-content {
+    padding: 10px;
+  }
+
+  .ship-routes-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .route-footer {
+    grid-template-columns: 1fr;
+  }
+
+  .route-footer button {
+    width: 100%;
+  }
+
+  .cheat-form {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .cheat-form button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+@media (max-width: 380px) {
+  .top-hud {
+    left: 6px;
+    right: 6px;
+  }
+
+  .hud-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .loadout-panel {
+    left: 6px;
+    right: 6px;
+    width: calc(100vw - 12px);
+  }
+
+  .location-bar {
+    left: 6px;
+    right: 6px;
   }
 }

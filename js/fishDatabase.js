@@ -934,6 +934,70 @@ export const fishDatabase = Object.freeze([
     description: "Господар підземних вод із панциром із чистого кристалу та лютим норовом.",
     colors: ["#ffffff", "#42f5e9"],
   },
+  {
+    id: "reedlake-warden",
+    name: "Вартовий Очеретяного Озера",
+    rarity: "Mythical",
+    minWeight: 12,
+    maxWeight: 30,
+    basePrice: 920,
+    locations: ["lake"],
+    zones: ["deep"],
+    chance: 0.34,
+    xp: 300,
+    boss: true,
+    description: "Стародавній господар озера, що здіймає хвилю одним помахом хвоста.",
+    colors: ["#f5c95c", "#145464"],
+    archetype: "leviathan",
+  },
+  {
+    id: "rootking-catfish",
+    name: "Король Коренів",
+    rarity: "Secret",
+    minWeight: 20,
+    maxWeight: 52,
+    basePrice: 1600,
+    locations: ["bog", "swamp"],
+    zones: ["deep"],
+    chance: 0.2,
+    xp: 460,
+    boss: true,
+    description: "Болотний велетень, обплутаний корінням і старими рибальськими сітями.",
+    colors: ["#9bd267", "#172414"],
+    archetype: "catfish",
+  },
+  {
+    id: "winterglass-koi",
+    name: "Зимовий Скляний Короп",
+    rarity: "Epic",
+    minWeight: 3.5,
+    maxWeight: 11,
+    basePrice: 260,
+    locations: ["lake", "mountain"],
+    zones: ["far", "deep"],
+    chance: 3.4,
+    xp: 110,
+    season: "Winter",
+    description: "Прозорі плавці цієї риби вкриваються крижаними візерунками взимку.",
+    colors: ["#d9edf0", "#78a9d4"],
+    archetype: "round",
+  },
+  {
+    id: "summerflare-tuna",
+    name: "Літній Вогнетунець",
+    rarity: "Legendary",
+    minWeight: 10,
+    maxWeight: 30,
+    basePrice: 720,
+    locations: ["ocean", "coral"],
+    zones: ["far", "deep"],
+    chance: 1.1,
+    xp: 240,
+    season: "Summer",
+    description: "Його золоті боки спалахують у теплій воді відкритого моря.",
+    colors: ["#ff9b62", "#114c76"],
+    archetype: "torpedo",
+  },
 ].map((fish) => ({ ...fish, archetype: getFishArchetype(fish) })));
 
 export function getFishById(id) {
@@ -942,6 +1006,30 @@ export function getFishById(id) {
 
 export function getLocationMeta(id) {
   return LOCATION_META[id] ?? LOCATION_META.lake;
+}
+
+export function getWorldConditions(locationId, now = new Date()) {
+  const location = getLocationMeta(locationId);
+  const hour = now.getHours();
+  const isNight = hour < 6 || hour >= 20;
+  const seasonNames = ["Winter", "Spring", "Summer", "Autumn"];
+  const season = seasonNames[Math.floor(now.getMonth() / 3) % 4];
+  const weatherKeys = ["clear", "mist", "rain"];
+  const weights = location.weatherWeights ?? { clear: 1, mist: 1, rain: 1 };
+  const seed = now.getDate() + now.getMonth() * 7 + locationId.length;
+  const total = weatherKeys.reduce((sum, key) => sum + (weights[key] ?? 0), 0);
+  let roll = (seed * 17 + hour * 3) % Math.max(total, 1);
+  let weather = "clear";
+
+  for (const key of weatherKeys) {
+    roll -= weights[key] ?? 0;
+    if (roll <= 0) {
+      weather = key;
+      break;
+    }
+  }
+
+  return { season, weather: isNight ? "night" : weather, isNight };
 }
 
 export function getCastZone(power) {
@@ -963,15 +1051,27 @@ export function getFishPool(locationId, zoneId) {
 
 // Rolls a fish from a weighted local pool. Bait and rod luck favor rare fish
 // without completely removing common catches from the economy.
-export function rollFish({ locationId, zoneId, luckBonus = 0 }) {
-  const pool = getFishPool(locationId, zoneId);
+export function rollFish({
+  locationId,
+  zoneId,
+  luckBonus = 0,
+  conditions = getWorldConditions(locationId),
+  rarityFilter = null,
+}) {
+  const basePool = getFishPool(locationId, zoneId);
+  const filteredPool = rarityFilter ? basePool.filter((fish) => rarityFilter.includes(fish.rarity)) : basePool;
+  const pool = filteredPool.length > 0 ? filteredPool : basePool;
   const weightedPool = pool.map((fish) => {
     const rarity = RARITY_META[fish.rarity] ?? RARITY_META.Common;
     const luckScale = 1 + luckBonus * rarity.difficulty * 1.85;
     const zoneScale = fish.zones.includes(zoneId) ? 1 : 0.35;
+    const eelBonus = conditions.weather === "rain" && fish.archetype === "eel" ? 2.8 : 1;
+    const nightBonus = conditions.isNight && rarity.difficulty >= 0.62 ? 1.9 : 1;
+    const seasonBonus = fish.season && fish.season === conditions.season ? 3.2 : fish.season ? 0.18 : 1;
+    const bossBonus = fish.boss && conditions.isNight ? 1.45 : 1;
     return {
       fish,
-      weight: fish.chance * luckScale * zoneScale,
+      weight: fish.chance * luckScale * zoneScale * eelBonus * nightBonus * seasonBonus * bossBonus,
     };
   });
 
@@ -1022,7 +1122,8 @@ export function getCatchDifficulty(catchItem) {
 
   const weightRange = fish.maxWeight - fish.minWeight || 1;
   const weightRatio = (catchItem.weight - fish.minWeight) / weightRange;
-  return clamp(rarity.difficulty + weightRatio * 0.18, 0.08, 1.18);
+  const bossDifficulty = fish.boss ? 0.16 : 0;
+  return clamp(rarity.difficulty + weightRatio * 0.18 + bossDifficulty, 0.08, 1.3);
 }
 
 function randomBetween(min, max) {

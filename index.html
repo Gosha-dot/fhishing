@@ -37,6 +37,9 @@
         <nav class="hud-actions" aria-label="Game panels">
           <button id="shipButton" class="ghost-button" type="button">Корабель</button>
           <button id="npcButton" class="ghost-button" type="button">Торговець</button>
+          <button id="aquariumButton" class="ghost-button" type="button">Акваріум</button>
+          <button id="journalButton" class="ghost-button" type="button">Журнал</button>
+          <button id="cheatButton" class="ghost-button" type="button">Чити</button>
           <button id="shopButton" class="ghost-button" type="button">Shop</button>
           <button id="dexButton" class="ghost-button" type="button">Fish Dex</button>
           <button id="soundButton" class="icon-button" type="button" aria-label="Toggle sound">Sound</button>
@@ -52,6 +55,11 @@
           <span>Bait</span>
           <strong id="baitName">Crumb Bait</strong>
         </div>
+        <div>
+          <span>World</span>
+          <strong id="worldConditions">Clear / Summer</strong>
+        </div>
+        <button id="abilityButton" class="accent-button" type="button">Ability: Ready</button>
       </section>
 
       <section class="location-bar" id="locationTabs" aria-label="Locations"></section>
@@ -73,6 +81,19 @@
             <i id="reelMarker"></i>
           </div>
           <div class="progress-track"><i id="reelProgress"></i></div>
+        </div>
+      </section>
+
+      <section id="aquariumModal" class="modal-layer" aria-hidden="true">
+        <div class="modal-panel wide-panel" role="dialog" aria-modal="true" aria-labelledby="aquariumTitle">
+          <div class="modal-header">
+            <div>
+              <span>Жива колекція</span>
+              <h2 id="aquariumTitle">Домашній акваріум</h2>
+            </div>
+            <button class="icon-button" type="button" data-close="aquariumModal" aria-label="Закрити">Close</button>
+          </div>
+          <div id="aquariumContent" class="aquarium-content"></div>
         </div>
       </section>
 
@@ -148,6 +169,40 @@
             <button class="icon-button" type="button" data-close="dexModal" aria-label="Close Fish Dex">Close</button>
           </div>
           <div id="dexContent" class="dex-grid"></div>
+        </div>
+      </section>
+
+      <section id="journalModal" class="modal-layer" aria-hidden="true">
+        <div class="modal-panel wide-panel" role="dialog" aria-modal="true" aria-labelledby="journalTitle">
+          <div class="modal-header">
+            <div>
+              <span>Прогрес і налаштування</span>
+              <h2 id="journalTitle">Журнал рибалки</h2>
+            </div>
+            <button class="icon-button" type="button" data-close="journalModal" aria-label="Закрити">Close</button>
+          </div>
+          <div id="journalContent" class="journal-content"></div>
+        </div>
+      </section>
+
+      <section id="cheatModal" class="modal-layer" aria-hidden="true">
+        <div class="modal-panel cheat-panel" role="dialog" aria-modal="true" aria-labelledby="cheatTitle">
+          <div class="modal-header">
+            <div>
+              <span>Developer tools</span>
+              <h2 id="cheatTitle">Чит-консоль</h2>
+            </div>
+            <button class="icon-button" type="button" data-close="cheatModal" aria-label="Закрити">Close</button>
+          </div>
+          <div class="cheat-content">
+            <div id="cheatOutput" class="cheat-output" aria-live="polite"></div>
+            <p class="cheat-help">Команди: <code>help</code>, <code>unlock all</code>, <code>give rod &lt;id|all&gt;</code>, <code>give coins &lt;amount&gt;</code>, <code>set level &lt;number&gt;</code>, <code>luck on|off</code>, <code>reset all</code></p>
+            <form id="cheatForm" class="cheat-form">
+              <span>&gt;</span>
+              <input id="cheatInput" name="command" autocomplete="off" spellcheck="false" placeholder="Введи команду..." />
+              <button type="submit">Виконати</button>
+            </form>
+          </div>
         </div>
       </section>
     </main>

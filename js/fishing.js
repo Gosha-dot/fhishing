@@ -2,8 +2,10 @@ import {
   createCatch,
   getCastZone,
   getCatchDifficulty,
+  getWorldConditions,
   rollFish,
 } from "./fishDatabase.js";
+import { getFishArchetype } from "./fishArchetypes.js";
 
 // Runs the playable loop without exposing catch internals on window. The UI only
 // gets a sanitized snapshot for drawing and meter updates.
@@ -14,6 +16,7 @@ export class FishingController {
     this.onMiss = onMiss;
     this.playSound = playSound;
     this.effects = [];
+    this.abilityCooldown = 0;
     this.resetToIdle("Ready at the dock");
   }
 
@@ -47,8 +50,29 @@ export class FishingController {
     }
   }
 
+  pressAbility() {
+    if (this.mode !== "reeling" || this.abilityCooldown > 0 || !this.reel) return false;
+    const ability = this.playerStore.snapshot().selectedRodData.ability;
+    if (!ability) return false;
+
+    if (ability.id === "sonar-pulse") {
+      this.reel.targetCenter = this.reel.indicator;
+      this.reel.line = clamp(this.reel.line + 0.18, 0, 1);
+      this.reel.sonar = 1.8;
+    } else if (ability.id === "line-stabilizer") {
+      this.reel.stabilized = 3.5;
+    } else if (ability.id === "quick-hook") {
+      this.reel.progress = clamp(this.reel.progress + 0.16, 0, 1);
+    }
+
+    this.abilityCooldown = 8;
+    this.status = `${ability.name} active`;
+    return true;
+  }
+
   update(dt) {
     const safeDt = Math.min(dt, 0.06);
+    this.abilityCooldown = Math.max(0, this.abilityCooldown - safeDt);
     this.effects = this.effects
       .map((effect) => ({ ...effect, age: effect.age + safeDt }))
       .filter((effect) => effect.age < effect.life);
@@ -76,6 +100,7 @@ export class FishingController {
       wait: this.wait ? clone(this.wait) : null,
       bite: this.bite ? clone(this.bite) : null,
       reel: this.reel ? clone(this.reel) : null,
+      abilityCooldown: this.abilityCooldown,
       effects: this.effects.map((effect) => ({ ...effect })),
     };
   }
@@ -175,6 +200,8 @@ export class FishingController {
       locationId: player.currentLocation,
       zoneId: this.wait.zoneId,
       luckBonus: player.selectedBaitData.luckBonus,
+      conditions: player.conditions,
+      rarityFilter: player.cheatLuck ? ["Legendary", "Mythical"] : null,
     });
 
     this.pendingCatch = createCatch(fish, {
@@ -183,9 +210,10 @@ export class FishingController {
     });
     this.mode = "bite";
     this.status = "Bite on the line";
+    const biteTime = player.selectedRodData.ability?.id === "quick-hook" ? 4.4 : 3.2;
     this.bite = {
-      remaining: 3.2,
-      total: 3.2,
+      remaining: biteTime,
+      total: biteTime,
       pulse: 0,
     };
     this.wait = null;
@@ -215,6 +243,7 @@ export class FishingController {
     const player = this.playerStore.snapshot();
     const rod = player.selectedRodData;
     const difficulty = getCatchDifficulty(this.pendingCatch);
+    const archetype = getFishArchetype(this.pendingCatch);
     const greenSize = clamp(0.34 + rod.zoneBonus - difficulty * 0.12, 0.16, 0.39);
 
     this.mode = "reeling";
@@ -231,6 +260,9 @@ export class FishingController {
       elapsed: 0,
       changeTimer: 0,
       difficulty,
+      archetype,
+      stabilized: 0,
+      sonar: 0,
       zoneSpeed: 0.18 + difficulty * 0.34,
       progressRate: 0.22 * rod.reelSpeed,
       lineDrain: (0.12 + difficulty * 0.12) / rod.lineStrength,
@@ -243,6 +275,8 @@ export class FishingController {
     const reel = this.reel;
     reel.elapsed += dt;
     reel.changeTimer -= dt;
+    reel.stabilized = Math.max(0, reel.stabilized - dt);
+    reel.sonar = Math.max(0, reel.sonar - dt);
 
     if (reel.changeTimer <= 0) {
       const half = reel.greenSize / 2;
@@ -252,7 +286,11 @@ export class FishingController {
 
     reel.zoneCenter = approach(reel.zoneCenter, reel.targetCenter, reel.zoneSpeed * dt);
 
-    const fishJolt = Math.sin(reel.elapsed * (3.7 + reel.difficulty * 2.8)) * 0.14 * reel.difficulty;
+    const twitch = Math.sin(reel.elapsed * (3.7 + reel.difficulty * 2.8)) * 0.14 * reel.difficulty;
+    const eelJolt = reel.archetype === "eel" ? Math.sin(reel.elapsed * 18) * 0.18 : 0;
+    const flatPull = reel.archetype === "flat" ? -0.16 : 0;
+    const torpedoDash = reel.archetype === "torpedo" ? Math.sin(reel.elapsed * 5.5) * 0.24 : 0;
+    const fishJolt = twitch + eelJolt + flatPull + torpedoDash;
     const playerPull = this.reelHeld ? 0.62 + reel.progressRate * 0.18 : -0.52 - reel.difficulty * 0.08;
     reel.indicator = clamp(reel.indicator + (playerPull + fishJolt) * dt, 0.02, 0.98);
 
@@ -264,7 +302,8 @@ export class FishingController {
       reel.line = clamp(reel.line + 0.035 * dt, 0, 1);
     } else {
       reel.progress = clamp(reel.progress - (0.08 + reel.difficulty * 0.04) * dt, 0, 1);
-      reel.line = clamp(reel.line - reel.lineDrain * dt, 0, 1);
+      const stabilizerScale = reel.stabilized > 0 ? 0.35 : 1;
+      reel.line = clamp(reel.line - reel.lineDrain * dt * stabilizerScale, 0, 1);
     }
 
     this.bobber.pulse += dt;
