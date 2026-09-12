@@ -1,5 +1,6 @@
 import { fishDatabase, RARITY_META } from "./fishDatabase.js";
 import { FishingController } from "./fishing.js";
+import { getFishRenderModel } from "./fishArchetypes.js";
 import { createPlayerStore } from "./player.js";
 import { UIController } from "./ui.js";
 
@@ -9,6 +10,8 @@ const ctx = canvas.getContext("2d");
 const playerStore = createPlayerStore();
 const audioBus = createAudioBus();
 let soundEnabled = true;
+const fishSchoolPools = new Map();
+const fishByLocationCache = new Map();
 
 const ui = new UIController({ playerStore });
 const fishing = new FishingController({
@@ -41,6 +44,14 @@ ui.bindHandlers({
   },
   sellCatch(catchId) {
     const result = playerStore.sellCatch(catchId);
+    ui.showToast(result.message);
+  },
+  sellAllNpc() {
+    const result = playerStore.sellAllWithBonus(15);
+    ui.showToast(result.message);
+  },
+  sellCatchNpc(catchId) {
+    const result = playerStore.sellCatchWithBonus(catchId, 15);
     ui.showToast(result.message);
   },
   setLocation(locationId) {
@@ -252,44 +263,111 @@ function drawWater(context, width, height, waterLine, palette, locationId, time)
 }
 
 function drawFishShapes(context, width, height, waterLine, locationId, time) {
-  const localFish = fishDatabase.filter((fish) => fish.locations.includes(locationId));
+  const localFish = getFishByLocation(locationId);
   const count = Math.min(localFish.length, width < 720 ? 4 : 7);
+  const swimmers = getFishSchool(locationId, count, localFish);
 
   context.save();
   for (let i = 0; i < count; i += 1) {
-    const fish = localFish[i % localFish.length];
-    const lane = i + 1;
-    const direction = i % 2 === 0 ? 1 : -1;
-    const speed = 0.018 + i * 0.004;
-    const swim = (time * speed + i * 0.19) % 1;
+    const swimmer = swimmers[i];
+    const fish = swimmer.fish;
+    const direction = swimmer.direction;
+    const swim = (time * swimmer.speed + swimmer.phase) % 1;
     const x = direction > 0 ? swim * (width + 180) - 90 : width - (swim * (width + 180) - 90);
-    const y = waterLine + 58 + lane * ((height - waterLine - 100) / Math.max(1, count + 1));
+    const y = waterLine + 58 + swimmer.lane * ((height - waterLine - 100) / Math.max(1, count + 1));
     const rarity = RARITY_META[fish.rarity] ?? RARITY_META.Common;
     const scale = 0.55 + rarity.difficulty * 0.35 + (i % 3) * 0.08;
+    const model = getFishRenderModel(fish, { seed: `${locationId}-${fish.id}-${i}` });
 
-    drawFishPrimitive(context, x, y + Math.sin(time * 1.4 + i) * 7, scale, fish.colors, direction);
+    drawFishPrimitive(context, x, y + Math.sin(time * swimmer.bob + i) * 7, scale, model, direction);
   }
   context.restore();
 }
 
-function drawFishPrimitive(context, x, y, scale, colors, direction) {
+function getFishByLocation(locationId) {
+  if (!fishByLocationCache.has(locationId)) {
+    fishByLocationCache.set(
+      locationId,
+      fishDatabase.filter((fish) => fish.locations.includes(locationId)),
+    );
+  }
+
+  return fishByLocationCache.get(locationId);
+}
+
+function getFishSchool(locationId, count, localFish) {
+  let pool = fishSchoolPools.get(locationId);
+
+  if (!pool) {
+    pool = [];
+    fishSchoolPools.set(locationId, pool);
+  }
+
+  while (pool.length < count) {
+    const i = pool.length;
+    pool.push({
+      fish: localFish[i % localFish.length],
+      lane: i + 1,
+      direction: i % 2 === 0 ? 1 : -1,
+      speed: 0.018 + i * 0.004,
+      phase: i * 0.19,
+      bob: 1.25 + i * 0.08,
+    });
+  }
+
+  if (pool.length > count) {
+    pool.length = count;
+  }
+
+  return pool;
+}
+
+function drawFishPrimitive(context, x, y, scale, model, direction) {
   context.save();
   context.translate(x, y);
   context.scale(direction * scale, scale);
   context.globalAlpha = 0.38;
+  const colors = model.colors;
   const gradient = context.createLinearGradient(-34, -12, 36, 12);
   gradient.addColorStop(0, colors[0]);
   gradient.addColorStop(1, colors[1]);
   context.fillStyle = gradient;
-  context.beginPath();
-  context.ellipse(0, 0, 38, 15, 0, 0, Math.PI * 2);
-  context.fill();
-  context.beginPath();
-  context.moveTo(-35, 0);
-  context.lineTo(-58, -14);
-  context.lineTo(-54, 14);
-  context.closePath();
-  context.fill();
+
+  if (model.archetype === "eel") {
+    context.lineWidth = 13 * model.params.body.width;
+    context.lineCap = "round";
+    context.beginPath();
+    context.moveTo(-46, 4);
+    context.quadraticCurveTo(-18, -14, 8, 0);
+    context.quadraticCurveTo(28, 12, 48, -1);
+    context.strokeStyle = gradient;
+    context.stroke();
+  } else if (model.archetype === "flat") {
+    context.beginPath();
+    context.moveTo(-42, 0);
+    context.quadraticCurveTo(-4, -28, 42, 0);
+    context.quadraticCurveTo(-4, 28, -42, 0);
+    context.fill();
+    context.strokeStyle = colors[1];
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(-42, 0);
+    context.lineTo(-62, 3);
+    context.stroke();
+  } else {
+    const bodyX = 36 * model.params.body.length;
+    const bodyY = 15 * model.params.body.width;
+    context.beginPath();
+    context.ellipse(0, 0, bodyX, bodyY, 0, 0, Math.PI * 2);
+    context.fill();
+    context.beginPath();
+    context.moveTo(-bodyX + 3, 0);
+    context.lineTo(-bodyX - 24 * model.params.fins.tail, -14 * model.params.fins.tail);
+    context.lineTo(-bodyX - 20 * model.params.fins.tail, 14 * model.params.fins.tail);
+    context.closePath();
+    context.fill();
+  }
+
   context.fillStyle = "rgba(255,255,255,0.75)";
   context.beginPath();
   context.arc(24, -4, 3, 0, Math.PI * 2);

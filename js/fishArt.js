@@ -1,131 +1,150 @@
 // Vector SVG generator for fish illustration and icons.
 // Provides unique silhouettes and color stylings for each species.
 
+import { getFishArchetype, getFishRenderModel } from "./fishArchetypes.js";
+import { RARITY_META } from "./fishDatabase.js";
+
 let artCounter = 0;
+const svgCache = new Map();
 
-export function getFishArchetype(fishId) {
-  if (fishId === "crownmire-eel" || fishId === "storm-eel" || fishId === "glow-grotto-eel") return "eel";
-  if (fishId === "dusk-ray" || fishId === "starlit-manta") return "ray";
-  if (fishId === "veil-angler") return "angler";
-  if (fishId === "witchmire-turtle") return "turtle";
-  if (fishId === "abyssal-axolotl") return "axolotl";
-  if (
-    fishId === "siltback-gar" ||
-    fishId === "canyon-pike" ||
-    fishId === "sapphire-needlefish" ||
-    fishId === "bog-pike"
-  )
-    return "predator";
-  if (
-    fishId === "moss-catfish" ||
-    fishId === "mudwhisker" ||
-    fishId === "granite-sturgeon" ||
-    fishId === "mire-bullhead" ||
-    fishId === "void-sturgeon"
-  )
-    return "catfish";
-  if (fishId === "whiteout-leviathan" || fishId === "crystal-leviathan") return "leviathan";
-  if (
-    fishId === "royal-tuna" ||
-    fishId === "foam-mackerel" ||
-    fishId === "silver-trout" ||
-    fishId === "snowglass-trout" ||
-    fishId === "frost-pebble-char" ||
-    fishId === "aurora-salmon" ||
-    fishId === "harbor-herring" ||
-    fishId === "ancient-bog-lurker"
-  )
-    return "streamlined";
-  if (
-    fishId === "amber-carp" ||
-    fishId === "lantern-koi" ||
-    fishId === "bog-lantern-carp" ||
-    fishId === "gilded-grouper" ||
-    fishId === "ember-parrotfish" ||
-    fishId === "coral-snapper" ||
-    fishId === "sunken-crownfish" ||
-    fishId === "golden-bass" ||
-    fishId === "captain-snapper"
-  )
-    return "deep_bodied";
-  return "classic";
-}
+export { getFishArchetype };
 
-export function getFishSvg(fish, { width = 200, height = 130, animated = true, className = "" } = {}) {
+export function getFishSvg(
+  fish,
+  { width = 200, height = 130, animated = true, animation = "idle-swim", className = "", seed, effects = true } = {},
+) {
+  const model = getFishRenderModel(fish, { seed, animation });
   artCounter += 1;
   const uid = `fish-${fish.id || "unknown"}-${artCounter}`;
-  const c1 = fish.colors?.[0] ?? "#78d27d";
-  const c2 = fish.colors?.[1] ?? "#2b7188";
-  const archetype = getFishArchetype(fish.id);
+  const uidToken = "__FISH_UID__";
+  const cacheKey = JSON.stringify({
+    id: fish.id ?? fish.fishId,
+    rarity: fish.rarity,
+    colors: fish.colors,
+    archetype: model.archetype,
+    seed: seed ?? fish.catchId ?? fish.id,
+    width,
+    height,
+    animated,
+    animation,
+    className,
+    effects,
+  });
+
+  if (svgCache.has(cacheKey)) {
+    return svgCache.get(cacheKey).replaceAll(uidToken, uid);
+  }
+
+  const c1 = model.colors[0];
+  const c2 = model.colors[1];
+  const archetype = model.archetype;
   const rarity = fish.rarity ?? "Common";
+  const rarityMeta = RARITY_META[rarity] ?? RARITY_META.Common;
+  const variant = model.variant;
 
   let bodyMarkup = "";
   switch (archetype) {
     case "eel":
-      bodyMarkup = renderEelBody(uid, c1, c2, fish.id);
+      bodyMarkup = renderEelBody(uidToken, c1, c2, fish.id);
       break;
-    case "ray":
-      bodyMarkup = renderRayBody(uid, c1, c2, fish.id);
+    case "flat":
+      bodyMarkup = renderRayBody(uidToken, c1, c2, fish.id);
       break;
     case "angler":
-      bodyMarkup = renderAnglerBody(uid, c1, c2);
+      bodyMarkup = renderAnglerBody(uidToken, c1, c2);
       break;
     case "turtle":
-      bodyMarkup = renderTurtleBody(uid, c1, c2);
+      bodyMarkup = renderTurtleBody(uidToken, c1, c2);
       break;
     case "axolotl":
-      bodyMarkup = renderAxolotlBody(uid, c1, c2);
+      bodyMarkup = renderAxolotlBody(uidToken, c1, c2);
       break;
     case "predator":
-      bodyMarkup = renderPredatorBody(uid, c1, c2, fish.id);
+      bodyMarkup = renderPredatorBody(uidToken, c1, c2, fish.id);
       break;
     case "catfish":
-      bodyMarkup = renderCatfishBody(uid, c1, c2, fish.id);
+      bodyMarkup = renderCatfishBody(uidToken, c1, c2, fish.id);
       break;
     case "leviathan":
-      bodyMarkup = renderLeviathanBody(uid, c1, c2);
+      bodyMarkup = renderLeviathanBody(uidToken, c1, c2);
       break;
-    case "streamlined":
-      bodyMarkup = renderStreamlinedBody(uid, c1, c2, fish.id);
+    case "torpedo":
+      bodyMarkup = renderStreamlinedBody(uidToken, c1, c2, fish.id);
       break;
-    case "deep_bodied":
-      bodyMarkup = renderDeepBodied(uid, c1, c2, fish.id);
+    case "round":
+      bodyMarkup = renderDeepBodied(uidToken, c1, c2, fish.id);
+      break;
+    case "longfin":
+      bodyMarkup = renderLongfinBody(uidToken, c1, c2, fish.id);
       break;
     default:
-      bodyMarkup = renderClassicBody(uid, c1, c2, fish.id);
+      bodyMarkup = renderClassicBody(uidToken, c1, c2, fish.id);
       break;
   }
 
-  const sparkleMarkup = renderSparkles(rarity);
-  const animClass = animated ? "animated-fish-svg" : "";
+  const rarityMarkup = effects ? renderRarityEffects(uidToken, rarity, rarityMeta.color) : { under: "", over: "" };
+  const animClass = animated ? `animated-fish-svg fish-animation-${animation}` : "";
+  const variantTransform = [
+    `translate(${(1 - variant.scale) * 110} ${(1 - variant.scale) * 70})`,
+    `scale(${variant.scale * variant.bodyLength} ${variant.scale * variant.bodyWidth})`,
+  ].join(" ");
+  const phaseMs = Math.round(variant.phase * -1400);
 
-  return `
+  const svg = `
     <svg 
       class="fish-svg ${animClass} ${className}" 
+      data-archetype="${escapeHtml(archetype)}"
+      data-rarity="${escapeHtml(rarity.toLowerCase())}"
       viewBox="0 0 220 140" 
       width="${width}" 
       height="${height}" 
       xmlns="http://www.w3.org/2000/svg"
       role="img"
       aria-label="${escapeHtml(fish.name ?? "Fish")}"
+      style="--fish-rarity-color: ${rarityMeta.color}; --tail-speed: ${model.params.animation.tail}; --swim-duration: ${model.params.animation.swim}s; --dash-duration: ${model.params.animation.dash}s; --struggle-duration: ${model.params.animation.struggle}s; --flop-duration: ${model.params.animation.flop}s; animation-delay: ${phaseMs}ms;"
     >
       <defs>
-        <linearGradient id="${uid}-grad" x1="0%" y1="15%" x2="100%" y2="85%">
+        <linearGradient id="${uidToken}-grad" x1="0%" y1="15%" x2="100%" y2="85%">
           <stop offset="0%" stop-color="${c1}" />
           <stop offset="100%" stop-color="${c2}" />
         </linearGradient>
-        <linearGradient id="${uid}-belly" x1="0%" y1="0%" x2="0%" y2="100%">
+        <linearGradient id="${uidToken}-belly" x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stop-color="#ffffff" stop-opacity="0.38" />
           <stop offset="100%" stop-color="#ffffff" stop-opacity="0.04" />
         </linearGradient>
-        <filter id="${uid}-glow" x="-20%" y="-20%" width="140%" height="140%">
+        <filter id="${uidToken}-glow" x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="3.5" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>
-      ${sparkleMarkup}
-      ${bodyMarkup}
+      ${rarityMarkup.under}
+      <g class="fish-variant-body" transform="${variantTransform}" style="filter: saturate(${variant.saturation});">
+        ${bodyMarkup}
+        ${renderPatternOverlay(variant, archetype)}
+      </g>
+      ${rarityMarkup.over}
     </svg>
+  `;
+
+  svgCache.set(cacheKey, svg);
+  return svg.replaceAll(uidToken, uid);
+}
+
+export function getFishInventoryIcon(fish, { size = 44, seed } = {}) {
+  const rarity = RARITY_META[fish.rarity] ?? RARITY_META.Common;
+  const svg = getFishSvg(fish, {
+    width: size,
+    height: Math.round(size * 0.64),
+    animated: false,
+    className: "inventory-thumb-svg",
+    seed,
+    effects: false,
+  });
+
+  return `
+    <span class="inventory-fish-icon" style="--fish-rarity-color: ${rarity.color};" title="${escapeHtml(fish.rarity)}">
+      ${svg}
+    </span>
   `;
 }
 
@@ -580,6 +599,99 @@ function renderAxolotlBody(uid, c1, c2) {
       <path d="M 176 72 Q 170 76 166 74" stroke="#4a1844" stroke-width="1.8" stroke-linecap="round" fill="none" />
     </g>
   `;
+}
+
+// 12. Long-finned reef/prize fish
+function renderLongfinBody(uid, c1, c2, id) {
+  const isCrown = id === "sunken-crownfish";
+  return `
+    <g class="fish-graphic-group">
+      <path class="fish-tail" d="M 52 70 Q 16 28 8 18 Q 26 66 16 70 Q 26 74 8 122 Q 16 110 52 70 Z" fill="${c2}" opacity="0.86" />
+
+      <path class="fish-fin fish-fin-dorsal" d="M 78 40 Q 100 4 142 30 Q 126 44 78 40 Z" fill="${c2}" opacity="0.72" />
+      <path class="fish-fin fish-fin-ventral" d="M 78 94 Q 102 132 138 104 Q 112 98 78 94 Z" fill="${c2}" opacity="0.62" />
+
+      <path d="M 48 70 C 58 34, 124 34, 174 70 C 126 106, 58 106, 48 70 Z" fill="url(#${uid}-grad)" />
+      <path d="M 62 75 C 84 93, 126 96, 160 76 C 124 86, 86 84, 62 75 Z" fill="url(#${uid}-belly)" />
+      <path d="M 72 53 Q 112 45 150 60" stroke="rgba(255,255,255,0.44)" stroke-width="2.2" stroke-linecap="round" fill="none" />
+      <path d="M 140 54 Q 132 70 140 86" stroke="rgba(0,0,0,0.24)" stroke-width="2" stroke-linecap="round" fill="none" />
+
+      <path class="fish-fin fish-fin-pectoral" d="M 124 73 Q 90 94 86 76 Q 104 66 124 73 Z" fill="${c1}" opacity="0.88" />
+      <circle cx="157" cy="60" r="6.6" fill="#1b1c1e" />
+      <circle cx="156" cy="59" r="5" fill="#36373c" />
+      <circle cx="154.5" cy="57.5" r="2" fill="#ffffff" />
+      <path d="M 174 70 Q 166 73 164 69" stroke="#1b1c1e" stroke-width="1.8" stroke-linecap="round" fill="none" />
+
+      ${
+        isCrown
+          ? `<polygon points="143,35 149,14 156,28 164,12 170,29 177,16 180,36" fill="#f5c95c" stroke="#b0841a" stroke-width="1.2" filter="url(#${uid}-glow)" />`
+          : ""
+      }
+    </g>
+  `;
+}
+
+function renderPatternOverlay(variant, archetype) {
+  const opacity = variant.patternOpacity;
+  const scale = archetype === "eel" || archetype === "predator" || archetype === "torpedo" ? 0.78 : 1;
+
+  if (variant.pattern === "stripes") {
+    return `
+      <g class="fish-pattern-layer" opacity="${opacity}">
+        <path d="M 76 50 L 70 86" stroke="#ffffff" stroke-width="${4 * scale}" stroke-linecap="round" />
+        <path d="M 98 47 L 92 90" stroke="#ffffff" stroke-width="${4 * scale}" stroke-linecap="round" />
+        <path d="M 120 50 L 116 87" stroke="#ffffff" stroke-width="${3.6 * scale}" stroke-linecap="round" />
+        <path d="M 142 56 L 138 82" stroke="#ffffff" stroke-width="${3 * scale}" stroke-linecap="round" />
+      </g>
+    `;
+  }
+
+  if (variant.pattern === "spots") {
+    return `
+      <g class="fish-pattern-layer" opacity="${opacity}">
+        <circle cx="78" cy="60" r="${5 * scale}" fill="#ffffff" />
+        <circle cx="102" cy="55" r="${4.4 * scale}" fill="#ffffff" />
+        <circle cx="125" cy="66" r="${5.5 * scale}" fill="#ffffff" />
+        <circle cx="96" cy="78" r="${3.8 * scale}" fill="#ffffff" />
+        <circle cx="146" cy="72" r="${3.5 * scale}" fill="#ffffff" />
+      </g>
+    `;
+  }
+
+  return `
+    <g class="fish-pattern-layer" opacity="${opacity}">
+      <circle cx="72" cy="63" r="${2.2 * scale}" fill="#ffffff" />
+      <circle cx="90" cy="55" r="${1.8 * scale}" fill="#ffffff" />
+      <circle cx="112" cy="62" r="${2 * scale}" fill="#ffffff" />
+      <circle cx="134" cy="58" r="${1.6 * scale}" fill="#ffffff" />
+      <circle cx="126" cy="78" r="${1.9 * scale}" fill="#ffffff" />
+      <circle cx="150" cy="72" r="${1.6 * scale}" fill="#ffffff" />
+    </g>
+  `;
+}
+
+function renderRarityEffects(uid, rarity, color) {
+  const isRarePlus = ["Rare", "Epic", "Legendary", "Mythical", "Secret"].includes(rarity);
+  const isLegendaryPlus = ["Legendary", "Mythical", "Secret"].includes(rarity);
+
+  return {
+    under: `
+      <ellipse class="fish-rarity-aura" cx="112" cy="72" rx="82" ry="34" fill="${color}" opacity="0.16" filter="url(#${uid}-glow)" />
+      ${isLegendaryPlus ? `<path class="fish-shimmer" d="M 42 34 L 76 20 L 188 106 L 154 122 Z" fill="#ffffff" opacity="0.16" />` : ""}
+    `,
+    over: isRarePlus
+      ? `
+        <g class="fish-particles" fill="${color}" opacity="0.86">
+          <circle cx="37" cy="28" r="2.2" />
+          <circle cx="187" cy="100" r="2" />
+          <circle cx="180" cy="31" r="2.4" />
+          <circle cx="45" cy="113" r="1.8" />
+          <path d="M 35 28 L 38 22 L 41 28 L 47 31 L 41 33 L 38 39 L 35 33 L 29 31 Z" opacity="0.7" />
+          <path d="M 178 30 L 181 23 L 184 30 L 191 33 L 184 36 L 181 43 L 178 36 L 171 33 Z" opacity="0.62" />
+        </g>
+      `
+      : "",
+  };
 }
 
 // Particle sparkles for high-tier catches

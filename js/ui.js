@@ -1,7 +1,7 @@
 import { fishDatabase, getFishById, LOCATION_META, RARITY_META } from "./fishDatabase.js";
 import { BAITS, BOATS, RODS } from "./shop.js";
 import { isLocationUnlocked } from "./player.js";
-import { getFishSvg } from "./fishArt.js";
+import { getFishInventoryIcon, getFishSvg } from "./fishArt.js";
 
 // DOM adapter for HUD, panels, modals, inventory, and input. Rendering is keyed
 // so frequently updated meters do not rebuild large panels every frame.
@@ -274,7 +274,14 @@ export class UIController {
     const rarity = RARITY_META[catchItem.rarity] ?? RARITY_META.Common;
     const rarityClass = catchItem.rarity.toLowerCase();
     const levelText = levelResult.levelUp ? `<div class="catch-levelup-tag">Level ${levelResult.level} reached!</div>` : "";
-    const fishSvg = getFishSvg(fish, { width: 180, height: 115, animated: true });
+    const displayFish = { ...fish, ...catchItem, id: fish.id, name: catchItem.name };
+    const fishSvg = getFishSvg(displayFish, {
+      width: 180,
+      height: 115,
+      animated: true,
+      animation: "caught",
+      seed: catchItem.catchId,
+    });
 
     this.dom.resultToast.className = `catch-toast ${rarityClass}`;
     this.dom.resultToast.innerHTML = `
@@ -397,7 +404,10 @@ export class UIController {
       .map((item) => {
         const fish = getFishById(item.fishId) ?? item;
         const rarity = RARITY_META[item.rarity] ?? RARITY_META.Common;
-        const fishThumb = getFishSvg(fish, { width: 44, height: 28, animated: false, className: "inventory-thumb" });
+        const fishThumb = getFishInventoryIcon(
+          { ...fish, ...item, id: fish.id, name: item.name },
+          { size: 44, seed: item.catchId },
+        );
         return `
           <article class="inventory-item">
             <div class="inventory-item-lead">
@@ -460,6 +470,7 @@ export class UIController {
           height: 46,
           animated: false,
           className: caught ? "" : "dex-silhouette",
+          seed: fish.id,
         });
 
         return `
@@ -496,10 +507,10 @@ export class UIController {
       fishListHtml = `
         <div class="npc-sell-summary">
           <div class="npc-bonus-badge">
-            ✨ <strong>+15% Бонус торговця рибою</strong> на весь ваш улов!
+            <strong>+15% fishmonger bonus</strong> for selling through Marco.
           </div>
           <button type="button" class="accent-button npc-sell-all-btn" data-npc-sell-all>
-            Продати весь улов (${count} шт.) за ${bonusVal} монет
+            Sell all ${count} fish for ${bonusVal} coins
           </button>
         </div>
         <div class="npc-fish-grid">
@@ -508,15 +519,18 @@ export class UIController {
               const fish = getFishById(item.fishId) ?? item;
               const rarity = RARITY_META[item.rarity] ?? RARITY_META.Common;
               const bonusPrice = Math.round(item.price * 1.15);
-              const fishSvg = getFishSvg(fish, { width: 56, height: 36, animated: false });
+              const fishSvg = getFishInventoryIcon(
+                { ...fish, ...item, id: fish.id, name: item.name },
+                { size: 50, seed: item.catchId },
+              );
               return `
                 <article class="npc-fish-card">
                   ${fishSvg}
                   <div class="npc-fish-info">
                     <h4 class="${rarity.className}">${escapeHtml(item.name)}</h4>
-                    <p>${item.weight.toFixed(2)} кг • <span class="npc-price">+${bonusPrice} монет</span></p>
+                    <p>${item.weight.toFixed(2)} kg - <span class="npc-price">+${bonusPrice} coins</span></p>
                   </div>
-                  <button type="button" data-npc-sell-catch="${escapeHtml(item.catchId)}">Продати</button>
+                  <button type="button" data-npc-sell-catch="${escapeHtml(item.catchId)}">Sell</button>
                 </article>
               `;
             })
@@ -526,23 +540,22 @@ export class UIController {
     } else {
       fishListHtml = `
         <div class="npc-empty-box">
-          <p>«Твій садок порожній, друже! Закинь вудку біля причалу або вирушай на кораблі до дальніх вод. Я завжди радий свіжій рибі!»</p>
+          <p>Your bag is empty. Catch a fish, then come back to sell it here.</p>
         </div>
       `;
     }
 
     this.dom.npcContent.innerHTML = `
       <div class="npc-dialogue-hero">
-        <div class="npc-avatar">⚓</div>
+        <div class="npc-avatar">$</div>
         <div class="npc-dialogue-bubble">
-          <h3>Старий Марко (Торговець свіжою рибою)</h3>
-          <p>«Вітаю у Рибальській Гавані! Я плачу найкращу ціну в окрузі: <strong>+15% понад звичайну вартість</strong> за будь-яку рибу, яку ти принесеш мені!»</p>
+          <h3>Old Marco, Fishmonger</h3>
+          <p>I buy fresh catches for <strong>15% above regular value</strong>. Sell one fish or cash out the whole bag.</p>
         </div>
       </div>
       ${fishListHtml}
     `;
   }
-
   renderShip(player) {
     const key = `${player.currentLocation}|${player.coins}|${player.levelInfo.level}`;
     if (this.renderKeys.get("shipModal") === key) return;
@@ -694,3 +707,4 @@ function escapeHtml(value) {
     return entities[char];
   });
 }
+

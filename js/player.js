@@ -106,7 +106,7 @@ export function createPlayerStore() {
       const count = next.inventory.length;
 
       if (count === 0) {
-        return { ok: false, message: "Ваш садок порожній." };
+        return { ok: false, message: "Your bag is empty." };
       }
 
       const bonusMultiplier = 1 + bonusPercent / 100;
@@ -121,7 +121,7 @@ export function createPlayerStore() {
 
       return {
         ok: true,
-        message: `Старий Марко придбав ${count} риб за ${total} монет (+${bonusCoins} монет бонусу торговця!)`,
+        message: `Old Marco bought ${count} fish for ${total} coins (+${bonusCoins} bonus).`,
       };
     },
     sellCatch(catchId) {
@@ -145,7 +145,7 @@ export function createPlayerStore() {
       const catchIndex = next.inventory.findIndex((item) => item.catchId === catchId);
 
       if (catchIndex === -1) {
-        return { ok: false, message: "Цієї риби вже немає в сумці." };
+        return { ok: false, message: "That fish is no longer in your bag." };
       }
 
       const [catchItem] = next.inventory.splice(catchIndex, 1);
@@ -155,7 +155,7 @@ export function createPlayerStore() {
       next.stats.earned += finalPrice;
       commit(next);
 
-      return { ok: true, message: `Продано ${catchItem.name} торговцю за ${finalPrice} монет!` };
+      return { ok: true, message: `Sold ${catchItem.name} to Marco for ${finalPrice} coins.` };
     },
     payTravelFare(fare, destinationId) {
       const location = LOCATION_META[destinationId];
@@ -384,3 +384,4 @@ function ensureOwned(items, fallbackId) {
 function clone(value) {
   return JSON.parse(JSON.stringify(value));
 }
+

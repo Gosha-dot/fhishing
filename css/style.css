@@ -572,8 +572,82 @@ h1 {
 }
 
 .animated-fish-svg {
-  animation: fish-swim-float 2.8s ease-in-out infinite alternate;
+  animation: fish-swim-float var(--swim-duration, 2.8s) ease-in-out infinite alternate;
   filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.45));
+  transform-origin: 50% 50%;
+  will-change: transform, opacity, filter;
+}
+
+.fish-svg {
+  overflow: visible;
+}
+
+.fish-svg[data-rarity="common"],
+.fish-svg[data-rarity="uncommon"] {
+  filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.32));
+}
+
+.fish-svg[data-rarity="rare"],
+.fish-svg[data-rarity="epic"],
+.fish-svg[data-rarity="legendary"],
+.fish-svg[data-rarity="mythical"],
+.fish-svg[data-rarity="secret"] {
+  filter:
+    drop-shadow(0 7px 12px rgba(0, 0, 0, 0.36))
+    drop-shadow(0 0 12px var(--fish-rarity-color));
+}
+
+.fish-variant-body,
+.fish-graphic-group,
+.fish-fin,
+.fish-tail {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.animated-fish-svg .fish-graphic-group {
+  animation: fish-body-wave calc(var(--swim-duration, 2.8s) / var(--tail-speed, 1)) ease-in-out infinite alternate;
+}
+
+.animated-fish-svg[data-archetype="eel"] .fish-graphic-group,
+.animated-fish-svg[data-archetype="leviathan"] .fish-graphic-group {
+  animation-name: fish-eel-wave;
+}
+
+.animated-fish-svg[data-archetype="flat"] .fish-graphic-group {
+  animation-name: fish-flat-glide;
+}
+
+.fish-animation-dash {
+  animation: fish-dash var(--dash-duration, 0.42s) cubic-bezier(0.17, 0.84, 0.32, 1) infinite;
+}
+
+.fish-animation-struggle {
+  animation: fish-struggle var(--struggle-duration, 0.28s) ease-in-out infinite alternate;
+}
+
+.fish-animation-caught,
+.fish-animation-flop {
+  animation: fish-flop var(--flop-duration, 0.62s) ease-in-out infinite alternate;
+}
+
+.fish-particles {
+  animation: fish-particles-drift 1.8s ease-in-out infinite alternate;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.fish-rarity-aura {
+  animation: fish-aura-pulse 1.9s ease-in-out infinite alternate;
+  transform-origin: center;
+  will-change: opacity, transform;
+}
+
+.fish-shimmer {
+  animation: fish-shimmer-sweep 1.45s linear infinite;
+  mix-blend-mode: screen;
+  transform-origin: center;
+  will-change: transform, opacity;
 }
 
 @keyframes fish-swim-float {
@@ -585,6 +659,99 @@ h1 {
   }
   100% {
     transform: translateY(-4px) rotate(2deg);
+  }
+}
+
+@keyframes fish-body-wave {
+  0% {
+    transform: skewX(-2deg) scaleX(0.99);
+  }
+  100% {
+    transform: skewX(2deg) scaleX(1.01);
+  }
+}
+
+@keyframes fish-eel-wave {
+  0% {
+    transform: skewX(-7deg) translateY(1px);
+  }
+  100% {
+    transform: skewX(7deg) translateY(-1px);
+  }
+}
+
+@keyframes fish-flat-glide {
+  0% {
+    transform: scaleY(0.97) rotate(-0.5deg);
+  }
+  100% {
+    transform: scaleY(1.03) rotate(0.5deg);
+  }
+}
+
+@keyframes fish-dash {
+  0% {
+    transform: translateX(-5px) scaleX(0.97);
+  }
+  55% {
+    transform: translateX(8px) scaleX(1.04);
+  }
+  100% {
+    transform: translateX(-5px) scaleX(0.97);
+  }
+}
+
+@keyframes fish-struggle {
+  0% {
+    transform: translate(-2px, 2px) rotate(-4deg);
+  }
+  100% {
+    transform: translate(2px, -2px) rotate(4deg);
+  }
+}
+
+@keyframes fish-flop {
+  0% {
+    transform: translateY(3px) rotate(-7deg) scaleY(0.98);
+  }
+  100% {
+    transform: translateY(-5px) rotate(8deg) scaleY(1.02);
+  }
+}
+
+@keyframes fish-particles-drift {
+  0% {
+    opacity: 0.45;
+    transform: translateY(4px) scale(0.96);
+  }
+  100% {
+    opacity: 0.95;
+    transform: translateY(-5px) scale(1.04);
+  }
+}
+
+@keyframes fish-aura-pulse {
+  0% {
+    opacity: 0.1;
+    transform: scale(0.94);
+  }
+  100% {
+    opacity: 0.26;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes fish-shimmer-sweep {
+  0% {
+    opacity: 0;
+    transform: translateX(-84px);
+  }
+  35% {
+    opacity: 0.22;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(98px);
   }
 }
 
@@ -754,6 +921,106 @@ h1 {
   color: #10140e;
 }
 
+.npc-content {
+  min-height: 0;
+  overflow: auto;
+  padding: 16px;
+}
+
+.npc-dialogue-hero {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.npc-avatar {
+  width: 58px;
+  height: 58px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--gold), var(--leaf));
+  color: #10140e;
+  font-size: 1.35rem;
+  font-weight: 900;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+}
+
+.npc-dialogue-bubble,
+.npc-empty-box,
+.npc-sell-summary,
+.npc-fish-card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.npc-dialogue-bubble,
+.npc-empty-box {
+  padding: 12px;
+}
+
+.npc-dialogue-bubble h3,
+.npc-fish-info h4 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.npc-dialogue-bubble p,
+.npc-empty-box p,
+.npc-fish-info p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.npc-sell-summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.npc-bonus-badge {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.npc-bonus-badge strong,
+.npc-price {
+  color: var(--gold);
+}
+
+.npc-sell-all-btn {
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
+.npc-fish-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+.npc-fish-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+}
+
+.npc-fish-card button {
+  min-height: 34px;
+  padding: 0 11px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .fish-card {
   min-height: 110px;
   display: grid;
@@ -773,9 +1040,10 @@ h1 {
   justify-content: center;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid currentColor;
   padding: 4px;
   min-height: 58px;
+  box-shadow: inset 0 0 16px rgba(255, 255, 255, 0.04);
 }
 
 .dex-silhouette {
@@ -789,10 +1057,24 @@ h1 {
   min-width: 0;
 }
 
-.inventory-thumb {
+.inventory-fish-icon {
+  width: 44px;
+  height: 32px;
   flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.04);
+  background:
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--fish-rarity-color), transparent 72%), transparent 68%),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--fish-rarity-color);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.inventory-thumb-svg {
+  display: block;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.42));
 }
 
 .rarity-common {

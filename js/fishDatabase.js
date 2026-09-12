@@ -1,5 +1,8 @@
+import { getFishArchetype } from "./fishArchetypes.js";
+
 // Fish data and roll helpers. Adding a new species only requires one new object
-// in fishDatabase with its locations, zones, rarity, and economy values.
+// in fishDatabase with its locations, zones, rarity, economy values, and
+// optional `archetype` such as "eel", "flat", "torpedo", "round", or "longfin".
 export const RARITY_META = Object.freeze({
   Common: {
     label: "Common",
@@ -931,7 +934,7 @@ export const fishDatabase = Object.freeze([
     description: "Господар підземних вод із панциром із чистого кристалу та лютим норовом.",
     colors: ["#ffffff", "#42f5e9"],
   },
-]);
+].map((fish) => ({ ...fish, archetype: getFishArchetype(fish) })));
 
 export function getFishById(id) {
   return fishDatabase.find((fish) => fish.id === id) ?? null;
@@ -997,6 +1000,7 @@ export function createCatch(fish, { locationId, zoneId }) {
     fishId: fish.id,
     name: fish.name,
     rarity: fish.rarity,
+    archetype: fish.archetype,
     weight,
     price,
     xp: fish.xp,
