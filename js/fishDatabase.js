@@ -56,17 +56,61 @@ export const RARITY_META = Object.freeze({
 });
 
 export const LOCATION_META = Object.freeze({
+  pier: {
+    id: "pier",
+    name: "Причал",
+    icon: "PR",
+    tag: "Риболовля на пірсі",
+    requiredLevel: 1,
+    requiredBoat: null,
+    travelCost: 0,
+    biteTempo: 1.1,
+    reelDifficulty: -0.02,
+    description: "Дерев'яний рибальський причал. Тут ловляться звичайні, рідкісні та епічні риби. Звідси відпливає човен на Острів.",
+    palette: {
+      skyTop: "#6297bf",
+      skyBottom: "#f2dbbd",
+      waterTop: "#1c6d8a",
+      waterBottom: "#0d3648",
+      shore: "#584236",
+      accent: "#f5c95c",
+      haze: "rgba(255, 230, 180, 0.28)",
+    },
+    weatherWeights: { clear: 4, mist: 2, rain: 2, night: 1 },
+  },
+  island: {
+    id: "island",
+    name: "Острів",
+    icon: "IS",
+    tag: "Торговець і Казино",
+    requiredLevel: 1,
+    requiredBoat: null,
+    travelCost: 0,
+    biteTempo: 1.0,
+    reelDifficulty: 0,
+    description: "Тропічний острів із піщаним берегом, яткою Торговця рибою Марко та казино «Блекджек».",
+    palette: {
+      skyTop: "#56a8cf",
+      skyBottom: "#fedca3",
+      waterTop: "#169bb8",
+      waterBottom: "#0c445a",
+      shore: "#dbb77b",
+      accent: "#ff7d67",
+      haze: "rgba(255, 238, 195, 0.32)",
+    },
+    weatherWeights: { clear: 5, mist: 1, rain: 2, night: 1 },
+  },
   harbor: {
     id: "harbor",
-    name: "Рибальська Гавань",
+    name: "Причал Гавані",
     icon: "HB",
-    tag: "Базар і Корабель",
+    tag: "Причал",
     requiredLevel: 1,
     requiredBoat: null,
     travelCost: 0,
     biteTempo: 1.05,
     reelDifficulty: -0.02,
-    description: "Жвавий причал із яткою торговця рибою, ліхтарями та кораблями далекого плавання.",
+    description: "Жвавий причал із ліхтарями та кораблями.",
     palette: {
       skyTop: "#689ac2",
       skyBottom: "#f2d8b8",
@@ -719,19 +763,33 @@ export const fishDatabase = Object.freeze([
     description: "A glitch-bright fish that appears as a flash before the line screams.",
     colors: ["#ffffff", "#8ffcff"],
   },
-  // --- Harbor Fish ---
+  // --- Pier & Island Fish ---
+  {
+    id: "pier-sprat",
+    name: "Причальна Кілька",
+    rarity: "Common",
+    minWeight: 0.2,
+    maxWeight: 0.8,
+    basePrice: 7,
+    locations: ["pier", "island", "harbor"],
+    zones: ["near", "far"],
+    chance: 38,
+    xp: 8,
+    description: "Швидка зграйна рибка біля опор причалу. Базова ціна: 5-8 монет.",
+    colors: ["#dbebf5", "#5c84a8"],
+  },
   {
     id: "harbor-herring",
-    name: "Гаванський Оселедець",
+    name: "Причальний Оселедець",
     rarity: "Common",
-    minWeight: 0.3,
-    maxWeight: 1.4,
-    basePrice: 14,
-    locations: ["harbor"],
-    zones: ["near", "far"],
-    chance: 42,
+    minWeight: 0.4,
+    maxWeight: 1.5,
+    basePrice: 9,
+    locations: ["pier", "island", "harbor"],
+    zones: ["near", "far", "deep"],
+    chance: 32,
     xp: 10,
-    description: "Срібляста зграйна рибка, що кружляє біля опор причалу гавані.",
+    description: "Срібляста рибка причальних вод. Базова ціна: 7-10 монет.",
     colors: ["#d0e6f5", "#487194"],
   },
   {
@@ -740,11 +798,11 @@ export const fishDatabase = Object.freeze([
     rarity: "Uncommon",
     minWeight: 0.8,
     maxWeight: 3.5,
-    basePrice: 32,
-    locations: ["harbor"],
-    zones: ["near", "deep"],
-    chance: 26,
-    xp: 22,
+    basePrice: 15,
+    locations: ["pier", "island", "harbor"],
+    zones: ["near", "far", "deep"],
+    chance: 18,
+    xp: 20,
     description: "Пласка маскуюча риба, що лежить на піщаному дні біля човнів.",
     colors: ["#c7a77e", "#5a4329"],
   },
@@ -752,29 +810,57 @@ export const fishDatabase = Object.freeze([
     id: "golden-bass",
     name: "Золотистий Окунь",
     rarity: "Rare",
-    minWeight: 2.2,
-    maxWeight: 7.8,
-    basePrice: 78,
-    locations: ["harbor"],
-    zones: ["far", "deep"],
-    chance: 11,
-    xp: 45,
-    description: "Міцний гаванський боєць із золотистим відливом на плавцях.",
+    minWeight: 2.0,
+    maxWeight: 6.5,
+    basePrice: 24,
+    locations: ["pier", "island", "harbor"],
+    zones: ["near", "far", "deep"],
+    chance: 22,
+    xp: 38,
+    description: "Рідкісний окунь із золотистим відливом на лусці. Базова ціна: 20-35 монет.",
     colors: ["#ffd768", "#7b5016"],
+  },
+  {
+    id: "island-reef-bass",
+    name: "Острівний Рифовий Окунь",
+    rarity: "Rare",
+    minWeight: 2.4,
+    maxWeight: 7.2,
+    basePrice: 27,
+    locations: ["pier", "island", "harbor"],
+    zones: ["far", "deep"],
+    chance: 18,
+    xp: 42,
+    description: "Спритний хижак острівних рифів. Базова ціна: 25-40 монет.",
+    colors: ["#ff977a", "#4a719c"],
   },
   {
     id: "captain-snapper",
     name: "Капітанський Люціан",
     rarity: "Epic",
     minWeight: 4.5,
-    maxWeight: 14.0,
-    basePrice: 165,
-    locations: ["harbor"],
-    zones: ["deep"],
-    chance: 3.2,
-    xp: 88,
-    description: "Гордість місцевих рибалок, що полює на глибині біля маяка.",
+    maxWeight: 12.0,
+    basePrice: 38,
+    locations: ["pier", "island", "harbor"],
+    zones: ["far", "deep"],
+    chance: 9,
+    xp: 75,
+    description: "Епічний велетень глибин біля причалу. Базова ціна: 50-85 монет.",
     colors: ["#ff7360", "#8f1922"],
+  },
+  {
+    id: "island-sun-ray",
+    name: "Острівний Сонячний Скат",
+    rarity: "Epic",
+    minWeight: 6.0,
+    maxWeight: 15.0,
+    basePrice: 45,
+    locations: ["pier", "island", "harbor"],
+    zones: ["deep"],
+    chance: 5,
+    xp: 88,
+    description: "Величний золотавий скат, що виблискує під водою. Базова ціна: 65-100 монет.",
+    colors: ["#ffe073", "#b7722d"],
   },
 
   // --- Bog Lake Fish ---
@@ -1005,7 +1091,8 @@ export function getFishById(id) {
 }
 
 export function getLocationMeta(id) {
-  return LOCATION_META[id] ?? LOCATION_META.lake;
+  if (id === "harbor") return LOCATION_META.pier ?? LOCATION_META.harbor;
+  return LOCATION_META[id] ?? LOCATION_META.pier ?? LOCATION_META.lake;
 }
 
 export function getWorldConditions(locationId, now = new Date()) {
@@ -1051,21 +1138,27 @@ export function getFishPool(locationId, zoneId) {
 
 // Rolls a fish from a weighted local pool. Bait and rod luck favor rare fish
 // without completely removing common catches from the economy.
+// During rain, 2x luck applies to Rare/Epic/Legendary fish chances.
 export function rollFish({
   locationId,
   zoneId,
   luckBonus = 0,
+  weatherMultiplier = 1.0,
   conditions = getWorldConditions(locationId),
   rarityFilter = null,
 }) {
   const basePool = getFishPool(locationId, zoneId);
   const filteredPool = rarityFilter ? basePool.filter((fish) => rarityFilter.includes(fish.rarity)) : basePool;
   const pool = filteredPool.length > 0 ? filteredPool : basePool;
+  const isRaining = conditions?.weather === "rain" || weatherMultiplier > 1.0;
+  const rainLuck = isRaining ? 2.0 : 1.0;
+
   const weightedPool = pool.map((fish) => {
     const rarity = RARITY_META[fish.rarity] ?? RARITY_META.Common;
-    const luckScale = 1 + luckBonus * rarity.difficulty * 1.85;
+    const rainRarityBoost = isRaining && rarity.difficulty >= 0.38 ? rainLuck : 1.0;
+    const luckScale = (1 + luckBonus * rarity.difficulty * 1.85) * rainRarityBoost;
     const zoneScale = fish.zones.includes(zoneId) ? 1 : 0.35;
-    const eelBonus = conditions.weather === "rain" && fish.archetype === "eel" ? 2.8 : 1;
+    const eelBonus = isRaining && fish.archetype === "eel" ? 2.8 : 1;
     const nightBonus = conditions.isNight && rarity.difficulty >= 0.62 ? 1.9 : 1;
     const seasonBonus = fish.season && fish.season === conditions.season ? 3.2 : fish.season ? 0.18 : 1;
     const bossBonus = fish.boss && conditions.isNight ? 1.45 : 1;

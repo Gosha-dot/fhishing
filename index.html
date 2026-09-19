@@ -32,11 +32,19 @@
             <span id="xpLabel">0 / 80 XP</span>
             <div><i id="xpBar"></i></div>
           </div>
+          <div id="weatherBadge" class="weather-pill" aria-label="Поточна погода">
+            <span id="weatherIcon">☀️</span>
+            <div>
+              <strong id="weatherName">Сонячно</strong>
+              <small id="weatherTimer">Дощ через: 5:00</small>
+            </div>
+          </div>
         </div>
 
         <nav class="hud-actions" aria-label="Game panels">
           <button id="shipButton" class="ghost-button" type="button">Корабель</button>
           <button id="npcButton" class="ghost-button" type="button">Торговець</button>
+          <button id="blackjackButton" class="ghost-button" type="button">Казино</button>
           <button id="aquariumButton" class="ghost-button" type="button">Акваріум</button>
           <button id="journalButton" class="ghost-button" type="button">Журнал</button>
           <button id="cheatButton" class="ghost-button" type="button">Чити</button>
@@ -130,6 +138,19 @@
             <button class="icon-button" type="button" data-close="npcModal" aria-label="Закрити">Close</button>
           </div>
           <div id="npcContent" class="npc-content"></div>
+        </div>
+      </section>
+
+      <section id="blackjackModal" class="modal-layer" aria-hidden="true">
+        <div class="modal-panel wide-panel casino-panel" role="dialog" aria-modal="true" aria-labelledby="blackjackTitle">
+          <div class="modal-header">
+            <div>
+              <span>Острівний гральний дім</span>
+              <h2 id="blackjackTitle">Казино «Блекджек»</h2>
+            </div>
+            <button class="icon-button" type="button" data-close="blackjackModal" aria-label="Закрити">Close</button>
+          </div>
+          <div id="blackjackContent" class="blackjack-content"></div>
         </div>
       </section>
 

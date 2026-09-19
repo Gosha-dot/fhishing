@@ -6,16 +6,23 @@ import { getFishInventoryIcon, getFishSvg } from "./fishArt.js";
 // DOM adapter for HUD, panels, modals, inventory, and input. Rendering is keyed
 // so frequently updated meters do not rebuild large panels every frame.
 export class UIController {
-  constructor({ playerStore }) {
+  constructor({ playerStore, blackjackGame, weatherSystem }) {
     this.playerStore = playerStore;
+    this.blackjackGame = blackjackGame ?? null;
+    this.weatherSystem = weatherSystem ?? null;
     this.renderKeys = new Map();
     this.resultTimer = null;
     this.soundEnabled = true;
+    this.canSellAtMerchant = false;
     this.dom = {
       coinAmount: document.querySelector("#coinAmount"),
       levelBadge: document.querySelector("#levelBadge"),
       xpLabel: document.querySelector("#xpLabel"),
       xpBar: document.querySelector("#xpBar"),
+      weatherBadge: document.querySelector("#weatherBadge"),
+      weatherIcon: document.querySelector("#weatherIcon"),
+      weatherName: document.querySelector("#weatherName"),
+      weatherTimer: document.querySelector("#weatherTimer"),
       statusText: document.querySelector("#statusText"),
       rodName: document.querySelector("#rodName"),
       baitName: document.querySelector("#baitName"),
@@ -37,6 +44,7 @@ export class UIController {
       shopButton: document.querySelector("#shopButton"),
       dexButton: document.querySelector("#dexButton"),
       npcButton: document.querySelector("#npcButton"),
+      blackjackButton: document.querySelector("#blackjackButton"),
       aquariumButton: document.querySelector("#aquariumButton"),
       journalButton: document.querySelector("#journalButton"),
       cheatButton: document.querySelector("#cheatButton"),
@@ -45,10 +53,12 @@ export class UIController {
       shopModal: document.querySelector("#shopModal"),
       dexModal: document.querySelector("#dexModal"),
       npcModal: document.querySelector("#npcModal"),
+      blackjackModal: document.querySelector("#blackjackModal"),
       shipModal: document.querySelector("#shipModal"),
       shopContent: document.querySelector("#shopContent"),
       dexContent: document.querySelector("#dexContent"),
       npcContent: document.querySelector("#npcContent"),
+      blackjackContent: document.querySelector("#blackjackContent"),
       aquariumModal: document.querySelector("#aquariumModal"),
       aquariumContent: document.querySelector("#aquariumContent"),
       journalModal: document.querySelector("#journalModal"),
@@ -236,6 +246,40 @@ export class UIController {
       }
     });
 
+    this.dom.blackjackButton?.addEventListener("click", () => this.openModal("blackjackModal"));
+
+    this.dom.blackjackContent?.addEventListener("click", (event) => {
+      const chipBtn = event.target.closest("[data-bj-chip]");
+      if (chipBtn) {
+        const amt = Number(chipBtn.dataset.bjChip);
+        const input = this.dom.blackjackContent.querySelector("#bjBetInput");
+        if (input) input.value = amt;
+        return;
+      }
+
+      if (event.target.closest("[data-bj-deal]")) {
+        const input = this.dom.blackjackContent.querySelector("#bjBetInput");
+        const amt = Number(input?.value || 10);
+        handlers.blackjackDeal?.(amt);
+        return;
+      }
+
+      if (event.target.closest("[data-bj-hit]")) {
+        handlers.blackjackHit?.();
+        return;
+      }
+
+      if (event.target.closest("[data-bj-stand]")) {
+        handlers.blackjackStand?.();
+        return;
+      }
+
+      if (event.target.closest("[data-bj-new-round]")) {
+        handlers.blackjackReset?.();
+        return;
+      }
+    });
+
     document.querySelectorAll("[data-close]").forEach((button) => {
       button.addEventListener("click", () => this.closeModal(button.dataset.close));
     });
@@ -279,6 +323,10 @@ export class UIController {
       this.renderNpc(player);
     }
 
+    if (this.dom.blackjackModal?.classList.contains("open")) {
+      this.renderBlackjack(player);
+    }
+
     if (this.dom.aquariumModal?.classList.contains("open")) {
       this.renderAquarium(player);
     }
@@ -290,6 +338,18 @@ export class UIController {
     if (this.dom.shipModal.classList.contains("open")) {
       this.renderShip(player);
     }
+
+    if (this.weatherSystem && this.dom.weatherBadge) {
+      const w = this.weatherSystem.getStatus();
+      if (this.dom.weatherIcon) this.dom.weatherIcon.textContent = w.weather === "rain" ? "🌧️" : "☀️";
+      if (this.dom.weatherName) this.dom.weatherName.textContent = w.label;
+      if (this.dom.weatherTimer) this.dom.weatherTimer.textContent = w.timerText;
+      if (w.weather === "rain") {
+        this.dom.weatherBadge.classList.add("rain-active");
+      } else {
+        this.dom.weatherBadge.classList.remove("rain-active");
+      }
+    }
   }
 
   setInteractionPrompt(text) {
@@ -300,6 +360,14 @@ export class UIController {
     } else {
       this.dom.interactionPrompt.hidden = true;
     }
+  }
+
+  setMerchantAccess(canSell) {
+    const nextValue = Boolean(canSell);
+    if (this.canSellAtMerchant === nextValue) return;
+    this.canSellAtMerchant = nextValue;
+    this.renderKeys.delete("inventory");
+    this.renderKeys.delete("npc");
   }
 
   setSoundEnabled(enabled) {
@@ -327,6 +395,8 @@ export class UIController {
     } else if (id === "npcModal") {
       this.renderKeys.delete("npc");
       this.renderNpc(player);
+    } else if (id === "blackjackModal") {
+      this.renderBlackjack(player);
     } else if (id === "shipModal") {
       this.renderKeys.delete("shipModal");
       this.renderShip(player);
@@ -477,9 +547,9 @@ export class UIController {
   }
 
   renderInventory(player) {
-    const key = player.inventory.map((item) => `${item.catchId}:${item.price}`).join("|");
+    const key = `${this.canSellAtMerchant}|${player.inventory.map((item) => `${item.catchId}:${item.price}`).join("|")}`;
     this.dom.inventoryCount.textContent = `${player.inventory.length} fish`;
-    this.dom.sellAllButton.disabled = player.inventory.length === 0;
+    this.dom.sellAllButton.disabled = player.inventory.length === 0 || !this.canSellAtMerchant;
 
     if (this.renderKeys.get("inventory") === key) {
       return;
@@ -511,7 +581,7 @@ export class UIController {
             </div>
             <div class="inventory-actions">
               <button type="button" data-keep-catch="${escapeHtml(item.catchId)}">Keep</button>
-              <button type="button" data-sell-catch="${escapeHtml(item.catchId)}">Sell</button>
+              <button type="button" data-sell-catch="${escapeHtml(item.catchId)}" ${this.canSellAtMerchant ? "" : "disabled"}>Sell</button>
             </div>
           </article>
         `;
@@ -589,7 +659,7 @@ export class UIController {
   }
 
   renderNpc(player) {
-    const key = player.inventory.map((i) => i.catchId).join(",") + "|" + player.coins;
+    const key = `${this.canSellAtMerchant}|${player.inventory.map((i) => i.catchId).join(",")}|${player.coins}`;
     if (this.renderKeys.get("npc") === key) return;
     this.renderKeys.set("npc", key);
 
@@ -602,10 +672,10 @@ export class UIController {
       fishListHtml = `
         <div class="npc-sell-summary">
           <div class="npc-bonus-badge">
-            <strong>+15% fishmonger bonus</strong> for selling through Marco.
+            <strong>+15% бонус від Марко</strong> за продаж риби на Острові!
           </div>
-          <button type="button" class="accent-button npc-sell-all-btn" data-npc-sell-all>
-            Sell all ${count} fish for ${bonusVal} coins
+          <button type="button" class="accent-button npc-sell-all-btn" data-npc-sell-all ${this.canSellAtMerchant ? "" : "disabled"}>
+            Продати весь улов (${count} шт.) за ${bonusVal} монет
           </button>
         </div>
         <div class="npc-fish-grid">
@@ -623,9 +693,9 @@ export class UIController {
                   ${fishSvg}
                   <div class="npc-fish-info">
                     <h4 class="${rarity.className}">${escapeHtml(item.name)}</h4>
-                    <p>${item.weight.toFixed(2)} kg - <span class="npc-price">+${bonusPrice} coins</span></p>
+                    <p>${item.weight.toFixed(2)} kg - <span class="npc-price">+${bonusPrice} монет</span></p>
                   </div>
-                  <button type="button" data-npc-sell-catch="${escapeHtml(item.catchId)}">Sell</button>
+                  <button type="button" data-npc-sell-catch="${escapeHtml(item.catchId)}" ${this.canSellAtMerchant ? "" : "disabled"}>Продати</button>
                 </article>
               `;
             })
@@ -635,21 +705,27 @@ export class UIController {
     } else {
       fishListHtml = `
         <div class="npc-empty-box">
-          <p>Your bag is empty. Catch a fish, then come back to sell it here.</p>
+          <p>Ваш садок порожній. Зловіть рибу на Причалі та повертайтесь сюди для продажу!</p>
         </div>
       `;
     }
 
     this.dom.npcContent.innerHTML = `
       <div class="npc-dialogue-hero">
-        <div class="npc-avatar">$</div>
+        <div class="npc-avatar">👨‍🦳</div>
         <div class="npc-dialogue-bubble">
-          <h3>Old Marco, Fishmonger</h3>
-          <p>I buy fresh catches for <strong>15% above regular value</strong>. Sell one fish or cash out the whole bag.</p>
+          <h3>Старий Марко, Торговець рибою на Острові</h3>
+          <p>«Вітаю на Острові! Я викуповую будь-який улов за <strong>найкращими цінами (+15% бонус)</strong>. Продавай по одній або здавай увесь садок одразу!»</p>
+          <div class="npc-price-tiers">
+            <span>Цінові категорії за рідкістю:</span>
+            <span class="rarity-common">Звичайні: 5–10+</span> • 
+            <span class="rarity-rare">Рідкісні: 20–40+</span> • 
+            <span class="rarity-epic">Епічні: 50–100+ монет</span>
+          </div>
         </div>
       </div>
       <section class="quest-board">
-        <h3>Квести болотної провідниці</h3>
+        <h3>Квести та замовлення</h3>
         <div class="quest-list">
           ${QUESTS.map((quest) => {
             const progress = player.quests.find((item) => item.id === quest.id);
@@ -661,6 +737,148 @@ export class UIController {
         </div>
       </section>
       ${fishListHtml}
+    `;
+  }
+
+  renderBlackjack(player = this.playerStore.snapshot()) {
+    if (!this.blackjackGame || !this.dom.blackjackContent) return;
+    const snap = this.blackjackGame.getSnapshot();
+    const handKey = [...snap.dealerHand, ...snap.playerHand]
+      .map((card) => `${card.id}:${card.hidden ? 1 : 0}`)
+      .join(",");
+    const resultKey = snap.result ? `${snap.result.outcome}:${snap.result.message}:${snap.result.payout}` : "";
+    const renderKey = `${player.coins}|${snap.status}|${snap.currentBet}|${handKey}|${resultKey}`;
+    if (this.renderKeys.get("blackjack") === renderKey) return;
+    this.renderKeys.set("blackjack", renderKey);
+
+    const isBetting = snap.status === "betting";
+    const isPlaying = snap.status === "playing";
+    const isEnded = snap.status === "ended";
+
+    const renderCard = (card) => {
+      if (card.hidden) {
+        return `
+          <div class="playing-card card-back" aria-label="Закрита карта">
+            <div class="card-inner-pattern">🂠</div>
+          </div>
+        `;
+      }
+      return `
+        <div class="playing-card ${card.isRed ? "red-card" : "black-card"}">
+          <div class="card-corner top-left">
+            <span class="card-rank">${escapeHtml(card.rank)}</span>
+            <span class="card-suit">${escapeHtml(card.suit)}</span>
+          </div>
+          <div class="card-center-suit">${escapeHtml(card.suit)}</div>
+          <div class="card-corner bottom-right">
+            <span class="card-rank">${escapeHtml(card.rank)}</span>
+            <span class="card-suit">${escapeHtml(card.suit)}</span>
+          </div>
+        </div>
+      `;
+    };
+
+    let resultHtml = "";
+    if (snap.result) {
+      const outcomeClass =
+        snap.result.outcome === "win" || snap.result.outcome === "blackjack" || snap.result.outcome === "dealer_bust"
+          ? "bj-result-win"
+          : snap.result.outcome === "push"
+            ? "bj-result-push"
+            : "bj-result-loss";
+      resultHtml = `
+        <div class="bj-result-banner ${outcomeClass}">
+          <strong>${escapeHtml(snap.result.message)}</strong>
+        </div>
+      `;
+    }
+
+    let controlsHtml = "";
+    if (isBetting) {
+      controlsHtml = `
+        <div class="bj-bet-controls">
+          <div class="bj-chips-strip">
+            <span>Вибір ставки (фішки):</span>
+            <div class="bj-chips">
+              <button type="button" class="bj-chip chip-5" data-bj-chip="5">5</button>
+              <button type="button" class="bj-chip chip-10" data-bj-chip="10">10</button>
+              <button type="button" class="bj-chip chip-25" data-bj-chip="25">25</button>
+              <button type="button" class="bj-chip chip-50" data-bj-chip="50">50</button>
+              <button type="button" class="bj-chip chip-100" data-bj-chip="100">100</button>
+            </div>
+          </div>
+          <div class="bj-deal-row">
+            <div class="bj-input-box">
+              <label for="bjBetInput">Ставка (монет):</label>
+              <input id="bjBetInput" type="number" min="5" max="${Math.max(5, player.coins)}" value="${Math.min(player.coins, snap.currentBet || 10)}" />
+            </div>
+            <button type="button" class="accent-button bj-deal-btn" data-bj-deal ${player.coins < 5 ? "disabled" : ""}>
+              Роздати карти (Deal) 🃏
+            </button>
+          </div>
+        </div>
+      `;
+    } else if (isPlaying) {
+      controlsHtml = `
+        <div class="bj-action-controls">
+          <button type="button" class="accent-button bj-hit-btn" data-bj-hit>
+            Взяти карту (Hit) 🂡
+          </button>
+          <button type="button" class="ghost-button bj-stand-btn" data-bj-stand>
+            Досить (Stand) ✋
+          </button>
+        </div>
+      `;
+    } else if (isEnded) {
+      controlsHtml = `
+        <div class="bj-ended-controls">
+          <button type="button" class="accent-button bj-new-btn" data-bj-new-round>
+            Зіграти ще раунд 🔄
+          </button>
+        </div>
+      `;
+    }
+
+    const dealerScoreText =
+      isPlaying && snap.dealerHand.length > 1 && snap.dealerHand[1]?.hidden ? "?" : snap.dealerScore;
+
+    this.dom.blackjackContent.innerHTML = `
+      <div class="casino-table">
+        <div class="casino-header-ribbon">
+          <div class="casino-rules-tag">
+            <span>Правила столу:</span> Блекджек виплачує 3:2 (2.5x) • Перемога 1:1 (2x) • Дилер бере до 17 • Туз = 1 або 11
+          </div>
+          <div class="casino-purse">
+            <span>Ваш баланс:</span> <strong>${player.coins} монет</strong>
+          </div>
+        </div>
+
+        <div class="bj-hand-section dealer-section">
+          <div class="bj-hand-header">
+            <h4>Дилер (Круп'є)</h4>
+            <span class="bj-score-badge">Очки: ${dealerScoreText}</span>
+          </div>
+          <div class="bj-cards-row">
+            ${snap.dealerHand.length > 0 ? snap.dealerHand.map(renderCard).join("") : '<div class="bj-empty-slot">Очікування ставки...</div>'}
+          </div>
+        </div>
+
+        ${resultHtml}
+
+        <div class="bj-hand-section player-section">
+          <div class="bj-hand-header">
+            <h4>Ваша рука</h4>
+            <span class="bj-score-badge ${snap.playerScore === 21 ? "bj-21-badge" : ""}">
+              Очки: ${snap.playerScore} ${snap.playerBlackjack ? "🔥 Блекджек!" : ""}
+            </span>
+          </div>
+          <div class="bj-cards-row">
+            ${snap.playerHand.length > 0 ? snap.playerHand.map(renderCard).join("") : '<div class="bj-empty-slot">Очікування роздачі...</div>'}
+          </div>
+        </div>
+
+        ${controlsHtml}
+      </div>
     `;
   }
 

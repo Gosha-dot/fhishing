@@ -22,7 +22,7 @@ const DEFAULT_STATE = Object.freeze({
   xp: 0,
   selectedRod: "willow-rod",
   selectedBait: "crumb-bait",
-  currentLocation: "lake",
+  currentLocation: "pier",
   ownedRods: ["willow-rod"],
   ownedBaits: ["crumb-bait"],
   ownedBoats: [],
@@ -57,7 +57,7 @@ export function createPlayerStore() {
       inventoryValue: getInventoryValue(state),
       selectedRodData: getRod(state.selectedRod),
       selectedBaitData: getBait(state.selectedBait),
-      currentLocationData: LOCATION_META[state.currentLocation] ?? LOCATION_META.lake,
+      currentLocationData: LOCATION_META[state.currentLocation] ?? LOCATION_META.pier ?? LOCATION_META.lake,
       conditions: getWorldConditions(state.currentLocation),
       aquarium: state.aquarium,
       quests: QUESTS.map((quest) => ({ ...quest, ...(state.quests[quest.id] ?? {}) })),
@@ -169,6 +169,19 @@ export function createPlayerStore() {
       next.coins += coins;
       commit(next);
       return { ok: true, message: `Додано ${coins} монет.` };
+    },
+    spendCoins(amount) {
+      const coins = Math.floor(Number(amount));
+      if (!Number.isFinite(coins) || coins <= 0) {
+        return { ok: false, message: "Сума витрат має бути додатною." };
+      }
+      if (state.coins < coins) {
+        return { ok: false, message: `Недостатньо монет: потрібно ${coins}.` };
+      }
+      const next = clone(state);
+      next.coins -= coins;
+      commit(next);
+      return { ok: true, message: `Списано ${coins} монет.` };
     },
     cheatSetLevel(level) {
       const targetLevel = Math.max(1, Math.min(50, Math.floor(Number(level))));
@@ -507,7 +520,7 @@ function normalizeState(rawState) {
   }
 
   if (!isLocationUnlocked(next, next.currentLocation)) {
-    next.currentLocation = "lake";
+    next.currentLocation = "pier";
   }
 
   for (const fish of fishDatabase) {

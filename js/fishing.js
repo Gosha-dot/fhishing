@@ -10,8 +10,9 @@ import { getFishArchetype } from "./fishArchetypes.js";
 // Runs the playable loop without exposing catch internals on window. The UI only
 // gets a sanitized snapshot for drawing and meter updates.
 export class FishingController {
-  constructor({ playerStore, onCatch, onMiss, playSound }) {
+  constructor({ playerStore, weatherSystem, onCatch, onMiss, playSound }) {
     this.playerStore = playerStore;
+    this.weatherSystem = weatherSystem ?? null;
     this.onCatch = onCatch;
     this.onMiss = onMiss;
     this.playSound = playSound;
@@ -172,7 +173,8 @@ export class FishingController {
     const bait = player.selectedBaitData;
     const location = player.currentLocationData;
     const depthPenalty = this.cast.zoneId === "deep" ? 1.4 : this.cast.zoneId === "far" ? 0.7 : 0;
-    const delay = (randomBetween(3, 11.5) + depthPenalty) / (bait.biteMultiplier * location.biteTempo);
+    const rawDelay = (randomBetween(3.5, 10.5) + depthPenalty) / (bait.biteMultiplier * location.biteTempo);
+    const delay = clamp(rawDelay, 3, 10); // 3-10s wait timer
 
     this.mode = "waiting";
     this.status = `${this.cast.zoneName} is quiet`;
@@ -196,10 +198,12 @@ export class FishingController {
 
   startBite() {
     const player = this.playerStore.snapshot();
+    const weatherMult = this.weatherSystem ? this.weatherSystem.getLuckMultiplier() : 1.0;
     const fish = rollFish({
       locationId: player.currentLocation,
       zoneId: this.wait.zoneId,
       luckBonus: player.selectedBaitData.luckBonus,
+      weatherMultiplier: weatherMult,
       conditions: player.conditions,
       rarityFilter: player.cheatLuck ? ["Legendary", "Mythical"] : null,
     });
