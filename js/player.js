@@ -17,6 +17,22 @@ export const ACHIEVEMENTS = Object.freeze([
   { id: "collector", title: "Колекціонер", description: "Відкрий 10 видів у Fish Dex.", target: 10, stat: "species", reward: 220 },
 ]);
 
+export const DAILY_CHALLENGE = Object.freeze({
+  id: "daily-catches",
+  title: "Ранковий улов",
+  description: "Злови 5 риб за сьогодні.",
+  target: 5,
+  reward: 160,
+});
+
+export const WEEKLY_CHALLENGE = Object.freeze({
+  id: "weekly-rare",
+  title: "Тиждень рідкісних",
+  description: "Злови 12 Rare або кращих риб цього тижня.",
+  target: 12,
+  reward: 650,
+});
+
 const DEFAULT_STATE = Object.freeze({
   coins: 120,
   xp: 0,
@@ -31,6 +47,14 @@ const DEFAULT_STATE = Object.freeze({
   dex: {},
   quests: {},
   achievements: {},
+  daily: { key: "", progress: 0, completed: false },
+  weekly: { key: "", progress: 0, completed: false },
+  combo: 0,
+  maxCombo: 0,
+  rareTokens: 0,
+  rodDurability: 100,
+  artifacts: [],
+  theme: "dark",
   cheatLuck: false,
   stats: {
     caught: 0,
@@ -65,6 +89,14 @@ export function createPlayerStore() {
         ...achievement,
         ...(state.achievements[achievement.id] ?? {}),
       })),
+      daily: { ...nextChallenge(state.daily, "day"), ...state.daily },
+      weekly: { ...nextChallenge(state.weekly, "week"), ...state.weekly },
+      combo: state.combo,
+      maxCombo: state.maxCombo,
+      rareTokens: state.rareTokens,
+      rodDurability: state.rodDurability,
+      artifacts: [...state.artifacts],
+      theme: state.theme,
       cheatLuck: state.cheatLuck,
       unlockedLocations: Object.keys(LOCATION_META).filter((locationId) =>
         isLocationUnlocked(state, locationId),
@@ -80,10 +112,21 @@ export function createPlayerStore() {
     },
     addCatch(catchItem) {
       const next = clone(state);
+      refreshChallenges(next);
       const beforeLevel = getLevelInfo(next.xp).level;
       next.inventory.unshift(catchItem);
       next.xp += catchItem.xp;
       next.stats.caught += 1;
+      next.combo += 1;
+      next.maxCombo = Math.max(next.maxCombo, next.combo);
+      next.coins += Math.max(0, (next.combo - 1) * 2);
+      next.rodDurability = Math.max(0, next.rodDurability - (catchItem.boss ? 8 : 3));
+      if (["Legendary", "Mythical", "Secret"].includes(catchItem.rarity)) next.rareTokens += catchItem.boss ? 5 : 1;
+      if (Math.random() < (catchItem.rarity === "Legendary" ? 0.18 : 0.035)) {
+        next.artifacts.unshift({ id: `artifact-${Date.now()}`, name: "Старий морський артефакт", value: 90, caughtAt: Date.now() });
+      }
+      next.daily.progress += 1;
+      if (catchItem.rarity !== "Common") next.weekly.progress += 1;
 
       const dexEntry = next.dex[catchItem.fishId] ?? {
         count: 0,
@@ -108,6 +151,17 @@ export function createPlayerStore() {
       for (const achievement of completedAchievements) {
         next.coins += achievement.reward;
       }
+      const challengeRewards = [];
+      if (!next.daily.completed && next.daily.progress >= DAILY_CHALLENGE.target) {
+        next.daily.completed = true;
+        next.coins += DAILY_CHALLENGE.reward;
+        challengeRewards.push(DAILY_CHALLENGE);
+      }
+      if (!next.weekly.completed && next.weekly.progress >= WEEKLY_CHALLENGE.target) {
+        next.weekly.completed = true;
+        next.coins += WEEKLY_CHALLENGE.reward;
+        challengeRewards.push(WEEKLY_CHALLENGE);
+      }
 
       const afterLevel = getLevelInfo(next.xp).level;
       commit(next);
@@ -117,7 +171,30 @@ export function createPlayerStore() {
         level: afterLevel,
         completedQuests,
         completedAchievements,
+        challengeRewards,
       };
+    },
+    breakCombo() {
+      if (!state.combo) return;
+      const next = clone(state);
+      next.combo = 0;
+      commit(next);
+    },
+    repairRod() {
+      const cost = Math.max(10, Math.ceil((100 - state.rodDurability) * 1.4));
+      if (state.rodDurability >= 100) return { ok: false, message: "Вудилище вже повністю справне." };
+      if (state.coins < cost) return { ok: false, message: `Потрібно ${cost} монет на ремонт.` };
+      const next = clone(state);
+      next.coins -= cost;
+      next.rodDurability = 100;
+      commit(next);
+      return { ok: true, message: `Снасті відремонтовано за ${cost} монет.` };
+    },
+    setTheme(theme) {
+      const next = clone(state);
+      next.theme = theme === "light" ? "light" : "dark";
+      commit(next);
+      return { ok: true, message: next.theme === "light" ? "Світлу тему увімкнено." : "Темну тему увімкнено." };
     },
     exportSave() {
       return JSON.stringify(state, null, 2);
@@ -510,6 +587,15 @@ function normalizeState(rawState) {
   next.quests = typeof next.quests === "object" && next.quests ? next.quests : {};
   next.achievements = typeof next.achievements === "object" && next.achievements ? next.achievements : {};
   next.cheatLuck = Boolean(next.cheatLuck);
+  next.daily = { ...DEFAULT_STATE.daily, ...(next.daily ?? {}) };
+  next.weekly = { ...DEFAULT_STATE.weekly, ...(next.weekly ?? {}) };
+  next.combo = Math.max(0, Number(next.combo) || 0);
+  next.maxCombo = Math.max(next.combo, Number(next.maxCombo) || 0);
+  next.rareTokens = Math.max(0, Number(next.rareTokens) || 0);
+  next.rodDurability = Math.max(0, Math.min(100, Number(next.rodDurability ?? 100)));
+  next.artifacts = Array.isArray(next.artifacts) ? next.artifacts : [];
+  next.theme = next.theme === "light" ? "light" : "dark";
+  refreshChallenges(next);
 
   if (!next.ownedRods.includes(next.selectedRod)) {
     next.selectedRod = RODS[0].id;
@@ -532,6 +618,18 @@ function normalizeState(rawState) {
   }
 
   return next;
+}
+
+function refreshChallenges(next) {
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const date = new Date();
+  const weekKey = `${date.getFullYear()}-${Math.ceil((date.getDate() + date.getDay()) / 7)}`;
+  if (next.daily.key !== dayKey) next.daily = { key: dayKey, progress: 0, completed: false };
+  if (next.weekly.key !== weekKey) next.weekly = { key: weekKey, progress: 0, completed: false };
+}
+
+function nextChallenge(challenge, period) {
+  return challenge ?? { key: period === "day" ? new Date().toISOString().slice(0, 10) : "", progress: 0, completed: false };
 }
 
 function updateQuestProgress(next, catchItem) {

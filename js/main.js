@@ -56,8 +56,11 @@ const fishing = new FishingController({
     ui.showCatchResult(catchItem, levelResult);
     levelResult.completedQuests?.forEach((quest) => ui.showToast(`Квест виконано: ${quest.title} (+${quest.reward} монет).`));
     levelResult.completedAchievements?.forEach((achievement) => ui.showToast(`Досягнення: ${achievement.title} (+${achievement.reward} монет).`));
+    levelResult.challengeRewards?.forEach((challenge) => ui.showToast(`Челендж виконано: ${challenge.title} (+${challenge.reward} монет).`));
+    if (playerStore.snapshot().combo > 1) ui.showToast(`Комбо x${playerStore.snapshot().combo}: бонусні монети!`);
   },
   onMiss(message) {
+    playerStore.breakCombo();
     ui.showToast(message);
   },
   playSound(type) {
@@ -208,6 +211,15 @@ ui.bindHandlers({
     }
     ui.setSoundEnabled(soundEnabled);
   },
+  repairRod() {
+    const result = playerStore.repairRod();
+    ui.showToast(result.message);
+  },
+  setTheme(theme) {
+    const result = playerStore.setTheme(theme);
+    document.documentElement.dataset.theme = playerStore.snapshot().theme;
+    ui.showToast(result.message);
+  },
   blackjackDeal(amount) {
     audioBus.unlock();
     const res = blackjackGame.placeBet(amount);
@@ -238,6 +250,7 @@ ui.bindHandlers({
 });
 
 ui.setSoundEnabled(soundEnabled);
+document.documentElement.dataset.theme = playerStore.snapshot().theme;
 if (!localStorage.getItem("tidebound-tutorial-seen")) {
   localStorage.setItem("tidebound-tutorial-seen", "1");
   ui.openModal("journalModal");

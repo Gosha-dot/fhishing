@@ -269,7 +269,7 @@ export class FishingController {
       sonar: 0,
       zoneSpeed: 0.18 + difficulty * 0.34,
       progressRate: 0.22 * rod.reelSpeed,
-      lineDrain: (0.12 + difficulty * 0.12) / rod.lineStrength,
+      lineDrain: ((0.12 + difficulty * 0.12) / rod.lineStrength) * (1 + (100 - player.rodDurability) / 180),
       inside: true,
     };
     this.playSound?.("hook");

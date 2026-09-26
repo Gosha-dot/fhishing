@@ -1,6 +1,6 @@
 import { fishDatabase, getFishById, LOCATION_META, RARITY_META } from "./fishDatabase.js";
 import { BAITS, BOATS, RODS } from "./shop.js";
-import { ACHIEVEMENTS, isLocationUnlocked, QUESTS } from "./player.js";
+import { ACHIEVEMENTS, DAILY_CHALLENGE, isLocationUnlocked, QUESTS, WEEKLY_CHALLENGE } from "./player.js";
 import { getFishInventoryIcon, getFishSvg } from "./fishArt.js";
 
 // DOM adapter for HUD, panels, modals, inventory, and input. Rendering is keyed
@@ -50,6 +50,7 @@ export class UIController {
       cheatButton: document.querySelector("#cheatButton"),
       shipButton: document.querySelector("#shipButton"),
       soundButton: document.querySelector("#soundButton"),
+      themeButton: document.querySelector("#themeButton"),
       shopModal: document.querySelector("#shopModal"),
       dexModal: document.querySelector("#dexModal"),
       npcModal: document.querySelector("#npcModal"),
@@ -133,6 +134,11 @@ export class UIController {
     this.dom.abilityButton?.addEventListener("click", () => handlers.ability?.());
     this.dom.shipButton?.addEventListener("click", () => this.openModal("shipModal"));
     this.dom.soundButton?.addEventListener("click", () => handlers.toggleSound());
+    this.dom.themeButton?.addEventListener("click", () => handlers.setTheme?.(this.playerStore.snapshot().theme === "dark" ? "light" : "dark"));
+    this.dom.journalContent?.addEventListener("click", (event) => {
+      if (event.target.closest("[data-repair-rod]")) handlers.repairRod?.();
+      if (event.target.closest("[data-theme-toggle]")) handlers.setTheme?.(this.playerStore.snapshot().theme === "dark" ? "light" : "dark");
+    });
     this.dom.sellAllButton?.addEventListener("click", () => handlers.sellAll());
 
     if (this.dom.walkLeftButton) {
@@ -896,7 +902,7 @@ export class UIController {
   }
 
   renderJournal(player) {
-    const key = `${player.levelInfo.level}|${player.coins}|${player.achievements.map((item) => `${item.id}:${item.progress}:${item.completed}`).join(",")}`;
+    const key = `${player.levelInfo.level}|${player.coins}|${player.combo}|${player.rodDurability}|${player.daily.progress}|${player.weekly.progress}|${player.theme}|${player.achievements.map((item) => `${item.id}:${item.progress}:${item.completed}`).join(",")}`;
     if (this.renderKeys.get("journal") === key) return;
     this.renderKeys.set("journal", key);
     this.dom.journalContent.innerHTML = `
@@ -904,6 +910,22 @@ export class UIController {
         <h3>Як грати</h3>
         <p>Утримуй Cast, відпусти для закидання, натисни Hook на клювання, а під час виважування тримай маркер у зеленій зоні.</p>
         <p>Вночі з’являються рідкісні види, дощ допомагає ловити вугрів. Рибу можна продати або залишити живою в акваріумі.</p>
+      </section>
+      <section class="journal-section">
+        <div class="journal-section-header"><h3>${escapeHtml(DAILY_CHALLENGE.title)}</h3><span>${player.daily.completed ? "✓" : `${player.daily.progress}/${DAILY_CHALLENGE.target}`}</span></div>
+        <p>${escapeHtml(DAILY_CHALLENGE.description)}: ${player.daily.progress}/${DAILY_CHALLENGE.target}</p>
+        <div class="progress-track"><i style="width:${Math.min(100, player.daily.progress / DAILY_CHALLENGE.target * 100)}%"></i></div>
+        <div class="journal-section-header"><h3>${escapeHtml(WEEKLY_CHALLENGE.title)}</h3><span>${player.weekly.completed ? "✓" : `${player.weekly.progress}/${WEEKLY_CHALLENGE.target}`}</span></div>
+        <p>${escapeHtml(WEEKLY_CHALLENGE.description)}: ${player.weekly.progress}/${WEEKLY_CHALLENGE.target}</p>
+        <div class="progress-track"><i style="width:${Math.min(100, player.weekly.progress / WEEKLY_CHALLENGE.target * 100)}%"></i></div>
+      </section>
+      <section class="journal-section journal-stats">
+        <h3>Екіпірування та колекції</h3>
+        <p>Комбо: <strong>x${player.combo}</strong> · Рекорд: ${player.maxCombo} · Рідкісні жетони: ${player.rareTokens}</p>
+        <p>Міцність вудилища: <strong>${Math.round(player.rodDurability)}%</strong></p>
+        <button type="button" data-repair-rod ${player.rodDurability >= 100 ? "disabled" : ""}>Полагодити снасті</button>
+        <p>Артефакти: ${player.artifacts.length}</p>
+        <button type="button" data-theme-toggle>Тема: ${player.theme === "dark" ? "темна" : "світла"}</button>
       </section>
       <section class="journal-section">
         <div class="journal-section-header"><h3>Досягнення</h3><span>${player.achievements.filter((item) => item.completed).length}/${ACHIEVEMENTS.length}</span></div>
